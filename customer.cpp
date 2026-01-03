@@ -76,7 +76,7 @@ void addCustomer() {
         }
 
     }
-    catch (OperationCancelledException& e) {
+    catch (OperationCancelledException&) {
     }
 
     pause();

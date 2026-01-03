@@ -5,7 +5,8 @@
       "Bash(wc:*)",
       "Bash(git checkout:*)",
       "Bash(cd:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(mkdir:*)"
     ]
   }
 }

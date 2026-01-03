@@ -113,7 +113,7 @@ void addVehicle() {
         }
 
     }
-    catch (OperationCancelledException& e) {
+    catch (OperationCancelledException&) {
     }
 
     pause();
