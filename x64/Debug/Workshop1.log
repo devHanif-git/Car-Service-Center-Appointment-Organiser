@@ -1,0 +1,4 @@
+﻿  utils.cpp
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\utils.cpp(18,17): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\utils.cpp(317,18): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+  Workshop1.vcxproj -> C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\x64\Debug\Workshop1.exe
