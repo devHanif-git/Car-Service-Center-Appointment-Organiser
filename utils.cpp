@@ -207,12 +207,21 @@ void autoGenerateFutureSlots(int daysToMaintain) {
     int daysGenerated = 0;
     int capacity = 3;
 
+    // Calculate total days to generate for progress bar
+    int totalDays = 0;
+    string tempDate = nextDate;
+    while (tempDate <= targetDate) {
+        totalDays++;
+        tempDate = addDaysToDate(tempDate, 1);
+    }
+
     string timeSlots[] = { "08:00:00", "08:30:00", "09:00:00", "09:30:00",
                            "10:00:00", "10:30:00", "11:00:00", "11:30:00",
                            "12:00:00", "12:30:00", "13:00:00", "13:30:00",
                            "14:00:00", "14:30:00", "15:00:00", "15:30:00",
                            "16:00:00", "16:30:00", "17:00:00" };
 
+    showLoadingStart("Generating time slots");
     while (nextDate <= targetDate) {
         for (const string& time : timeSlots) {
             string insertQ = "INSERT INTO SLOT_TIME (slotDate, slotTime, maxCapacity, currentBookings, isAvailable) "
@@ -221,8 +230,10 @@ void autoGenerateFutureSlots(int daysToMaintain) {
         }
 
         daysGenerated++;
+        showLoadingProgress(daysGenerated, totalDays);
         nextDate = addDaysToDate(nextDate, 1);
     }
+    showLoadingComplete();
 
     showSuccess("[System] SUCCESS: Generated slots for " + to_string(daysGenerated) + " new days.");
     pause();

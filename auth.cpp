@@ -52,6 +52,9 @@ bool login() {
 
                 mysql_free_result(result);
 
+                // Initialize session
+                resetSession();
+
                 showSuccess("Login Successful! Welcome, " + currentStaffName + " (" + currentUserRole + ")");
                 pause();
                 return true;

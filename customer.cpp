@@ -280,6 +280,7 @@ void manageCustomerRecords() {
     do {
         clearScreen();
         displayHeader();
+        displayBreadcrumb();
         cout << "\n\033[1;97m4.0 CUSTOMER DATABASE\033[0m\n" << endl;
         cout << "\033[36m1.\033[0m Search Customer Directory" << endl;
         cout << "\033[36m2.\033[0m Register New Customer" << endl;

@@ -288,6 +288,7 @@ void manageStaff() {
     do {
         clearScreen();
         displayHeader();
+        displayBreadcrumb();
         cout << "\n\033[1;97m7.0 STAFF MANAGEMENT (MANAGER ONLY)\033[0m\n" << endl;
         cout << "\033[36m1.\033[0m Add New Staff" << endl;
         cout << "\033[36m2.\033[0m View Staff List" << endl;
@@ -298,10 +299,10 @@ void manageStaff() {
         try {
             choice = getValidInt("\nEnter choice", 0, 4);
             switch (choice) {
-            case 1: addStaff(); break;
-            case 2: viewStaff(); break;
-            case 3: updateStaff(); break;
-            case 4: deactivateStaff(); break;
+            case 1: setBreadcrumb("Home > Staff Admin > Add Staff"); addStaff(); break;
+            case 2: setBreadcrumb("Home > Staff Admin > View Staff"); viewStaff(); break;
+            case 3: setBreadcrumb("Home > Staff Admin > Update Staff"); updateStaff(); break;
+            case 4: setBreadcrumb("Home > Staff Admin > Manage Status"); deactivateStaff(); break;
             case 0: break;
             }
         }

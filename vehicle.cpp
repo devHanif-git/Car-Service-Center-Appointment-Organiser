@@ -424,6 +424,7 @@ void trackVehicleRecords() {
     do {
         clearScreen();
         displayHeader();
+        displayBreadcrumb();
         cout << "\n\033[1;97m5.0 VEHICLE REGISTRY\033[0m\n" << endl;
         cout << "\033[36m1.\033[0m Search Vehicle" << endl;
         cout << "\033[36m2.\033[0m View Service History" << endl;

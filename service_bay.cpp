@@ -377,6 +377,7 @@ void coordinateServiceBays() {
     do {
         clearScreen();
         displayHeader();
+        displayBreadcrumb();
         cout << "\n\033[1;97m3.0 BAY & FACILITY MANAGEMENT\033[0m\n" << endl;
         cout << "\033[36m1.\033[0m Check Bay Schedule (Find Gaps)" << endl;
         cout << "\033[36m2.\033[0m View Bay Status Overview" << endl;

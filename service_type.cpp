@@ -362,6 +362,7 @@ void maintainServiceTypes() {
     do {
         clearScreen();
         displayHeader();
+        displayBreadcrumb();
         cout << "\n\033[1;97m6.0 SERVICE CATALOG (PRICING)\033[0m\n" << endl;
         cout << "\033[36m1.\033[0m Search Service Price" << endl;
         cout << "\033[36m2.\033[0m View Full Catalog" << endl;

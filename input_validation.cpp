@@ -42,6 +42,7 @@ string getValidString(string prompt, int minLength, int maxLength, bool allowEmp
             showError("Input too long! Maximum " + to_string(maxLength) + " characters.");
         }
         else {
+            updateLastActivity();
             return value;
         }
     }
@@ -63,6 +64,7 @@ int getValidInt(string prompt, int minVal, int maxVal) {
         try {
             value = stoi(input);
             if (value >= minVal && value <= maxVal) {
+                updateLastActivity();
                 return value;
             }
             else {

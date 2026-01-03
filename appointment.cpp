@@ -820,6 +820,7 @@ void scheduleAppointments() {
     do {
         clearScreen();
         displayHeader();
+        displayBreadcrumb();
         cout << "\n\033[1;97m2.0 SERVICE OPERATIONS\033[0m\n" << endl;
         cout << "\033[36m1.\033[0m View Appointment Dashboard" << endl;
         cout << "\033[36m2.\033[0m Check Available Slots" << endl;

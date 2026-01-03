@@ -99,6 +99,7 @@ void viewAppointmentSchedule() {
         }
 
         // Main Query - Get all appointments with full details
+        showLoadingStart("Generating report");
         string query = "SELECT a.appointmentId, st.slotDate, st.slotTime, a.endTime, "
             "c.customerName, c.phoneNumber, v.licensePlate, v.brand, v.model, "
             "sb.bayName, a.status, a.notes, a.createdDate "
@@ -111,6 +112,7 @@ void viewAppointmentSchedule() {
             "ORDER BY st.slotDate ASC, st.slotTime ASC";
 
         if (mysql_query(conn, query.c_str())) {
+            showLoadingComplete();
             showError("Database Error: " + string(mysql_error(conn)));
             pause();
             return;
@@ -118,6 +120,7 @@ void viewAppointmentSchedule() {
 
         MYSQL_RES* result = mysql_store_result(conn);
         int totalAppointments = mysql_num_rows(result);
+        showLoadingComplete();
 
         if (totalAppointments == 0) {
             showError("No appointments found for the selected period.");
@@ -247,6 +250,7 @@ void viewFinancialReport() {
             return;
         }
 
+        showLoadingStart("Generating financial report");
         printReportHeader("FINANCIAL REPORT - SALES", startDate, endDate);
 
         // Section 1: Daily Revenue Breakdown
@@ -265,12 +269,14 @@ void viewFinancialReport() {
             "GROUP BY day ORDER BY day";
 
         if (mysql_query(conn, dailyQuery.c_str())) {
+            showLoadingComplete();
             showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
 
         MYSQL_RES* dailyResult = mysql_store_result(conn);
+        showLoadingComplete();
 
         cout << "\033[36m" << left
             << setw(15) << "Date"
@@ -427,6 +433,7 @@ void viewMechanicPerformance() {
             return;
         }
 
+        showLoadingStart("Generating performance report");
         printReportHeader("MECHANIC PERFORMANCE REPORT", startDate, endDate);
 
         // Get all mechanics with their performance
@@ -447,6 +454,7 @@ void viewMechanicPerformance() {
             "ORDER BY revenue DESC";
 
         if (mysql_query(conn, mechQuery.c_str())) {
+            showLoadingComplete();
             showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
@@ -454,6 +462,7 @@ void viewMechanicPerformance() {
 
         MYSQL_RES* mechResult = mysql_store_result(conn);
         int totalMechanics = mysql_num_rows(mechResult);
+        showLoadingComplete();
 
         // Performance Summary Table
         printSectionDivider("PERFORMANCE SUMMARY");
@@ -594,6 +603,7 @@ void viewServiceTrends() {
             return;
         }
 
+        showLoadingStart("Generating trends report");
         printReportHeader("SERVICE TRENDS & POPULARITY REPORT", startDate, endDate);
 
         // Section 1: Service Ranking
@@ -617,6 +627,7 @@ void viewServiceTrends() {
             "ORDER BY bookings DESC, sv.serviceName";
 
         if (mysql_query(conn, rankQuery.c_str())) {
+            showLoadingComplete();
             showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
@@ -624,6 +635,7 @@ void viewServiceTrends() {
 
         MYSQL_RES* rankResult = mysql_store_result(conn);
         int totalServices = mysql_num_rows(rankResult);
+        showLoadingComplete();
 
         cout << "\033[36m" << left
             << setw(5) << "Rank"
@@ -758,6 +770,7 @@ void viewCustomerAnalytics() {
         case 1: // VIP Customers
         {
             clearScreen();
+            showLoadingStart("Generating VIP customers report");
             printReportHeader("VIP CUSTOMERS REPORT", "All Time", "Present");
 
             printSectionDivider("TOP 10 VIP CUSTOMERS BY SPENDING");
@@ -775,8 +788,9 @@ void viewCustomerAnalytics() {
                 "GROUP BY c.customerId "
                 "ORDER BY total_spent DESC LIMIT 10";
 
-            if (mysql_query(conn, query.c_str())) { cout << mysql_error(conn); break; }
+            if (mysql_query(conn, query.c_str())) { showLoadingComplete(); cout << mysql_error(conn); break; }
             result = mysql_store_result(conn);
+            showLoadingComplete();
 
             cout << "\033[36m" << left
                 << setw(5) << "Rank"
@@ -1205,6 +1219,7 @@ void generateReports() {
     do {
         clearScreen();
         displayHeader();
+        displayBreadcrumb();
         cout << "\n\033[1;97m7.0 ANALYTICS & REPORTS\033[0m \033[33m[MANAGER ONLY]\033[0m\n" << endl;
 
         cout << "\033[36m1.\033[0m Appointment Schedule Report (Detailed)" << endl;
@@ -1218,11 +1233,11 @@ void generateReports() {
         try {
             choice = getValidInt("\nEnter choice", 0, 5);
             switch (choice) {
-            case 1: viewAppointmentSchedule(); break;
-            case 2: viewFinancialReport(); break;
-            case 3: viewServiceTrends(); break;
-            case 4: viewMechanicPerformance(); break;
-            case 5: viewCustomerAnalytics(); break;
+            case 1: setBreadcrumb("Home > Reports > Appointments"); viewAppointmentSchedule(); break;
+            case 2: setBreadcrumb("Home > Reports > Financial"); viewFinancialReport(); break;
+            case 3: setBreadcrumb("Home > Reports > Service Trends"); viewServiceTrends(); break;
+            case 4: setBreadcrumb("Home > Reports > Mechanic Performance"); viewMechanicPerformance(); break;
+            case 5: setBreadcrumb("Home > Reports > Customer Analytics"); viewCustomerAnalytics(); break;
             case 0: break;
             }
         }
