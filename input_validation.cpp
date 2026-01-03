@@ -1,4 +1,5 @@
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // STRING HELPER
@@ -21,24 +22,24 @@ string getValidString(string prompt, int minLength, int maxLength, bool allowEmp
 
         // Check for Global Cancel
         if (trim(value) == "@") {
-            cout << "\n\033[33m[!] Operation cancelled by user.\033[0m" << endl;
+            showWarning("Operation cancelled by user.");
             throw OperationCancelledException();
         }
 
         // Handle Empty Input (for "Press Enter to skip/today")
         if (trim(value).empty()) {
             if (allowEmpty) return "";
-            cout << "\033[31m[-] Input cannot be empty! Please try again.\033[0m" << endl;
+            showError("Input cannot be empty! Please try again.");
             continue;
         }
 
         value = trim(value);
 
         if (value.length() < minLength) {
-            cout << "\033[31m[-] Input too short! Minimum " << minLength << " characters.\033[0m" << endl;
+            showError("Input too short! Minimum " + to_string(minLength) + " characters.");
         }
         else if (value.length() > maxLength) {
-            cout << "\033[31m[-] Input too long! Maximum " << maxLength << " characters.\033[0m" << endl;
+            showError("Input too long! Maximum " + to_string(maxLength) + " characters.");
         }
         else {
             return value;
@@ -55,7 +56,7 @@ int getValidInt(string prompt, int minVal, int maxVal) {
         getline(cin, input);
 
         if (trim(input) == "@") {
-            cout << "\n\033[33m[!] Operation cancelled by user.\033[0m" << endl;
+            showWarning("Operation cancelled by user.");
             throw OperationCancelledException();
         }
 
@@ -65,11 +66,11 @@ int getValidInt(string prompt, int minVal, int maxVal) {
                 return value;
             }
             else {
-                cout << "\033[31m[-] Invalid number! Please enter between " << minVal << " and " << maxVal << ".\033[0m" << endl;
+                showError("Invalid number! Please enter between " + to_string(minVal) + " and " + to_string(maxVal) + ".");
             }
         }
         catch (...) {
-            cout << "\033[31m[-] Invalid input! Please enter a number.\033[0m" << endl;
+            showError("Invalid input! Please enter a number.");
         }
     }
 }
@@ -86,10 +87,10 @@ string getValidPhone(string prompt) {
         }
 
         if (cleanPhone.empty() || cleanPhone[0] != '0') {
-            cout << "\033[31m[-] Phone number must start with 0!\033[0m" << endl;
+            showError("Phone number must start with 0!");
         }
         else if (cleanPhone.length() < 10 || cleanPhone.length() > 11) {
-            cout << "\033[31m[-] Phone number must be 10-11 digits!\033[0m" << endl;
+            showError("Phone number must be 10-11 digits!");
         }
         else {
             return cleanPhone;
@@ -102,7 +103,7 @@ string getValidEmail(string prompt) {
         string email = getValidString(prompt, 5, 50, false);
 
         if (email.find('@') == string::npos || email.find('.') == string::npos) {
-            cout << "\033[31m[-] Invalid email format! Must contain '@' and domain.\033[0m" << endl;
+            showError("Invalid email format! Must contain '@' and domain.");
         }
         else {
             return email;
@@ -123,7 +124,7 @@ bool getConfirmation(string prompt) {
         if (choice == 'Y') return true;
         if (choice == 'N') return false;
 
-        cout << "\033[31m[-] Invalid input! Please enter Y or N.\033[0m" << endl;
+        showError("Invalid input! Please enter Y or N.");
     }
 }
 

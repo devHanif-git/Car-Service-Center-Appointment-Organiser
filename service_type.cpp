@@ -1,6 +1,7 @@
 ﻿#include "service_type.h"
 #include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // ADD SERVICE TYPE
@@ -23,7 +24,7 @@ void addServiceType() {
         mysql_free_result(res);
 
         if (count > 0) {
-            cout << "\n\033[31m[-] Error: Service '" << name << "' already exists.\033[0m" << endl;
+            showError("Service '" + name + "' already exists.");
             pause();
             return;
         }
@@ -36,12 +37,12 @@ void addServiceType() {
             "VALUES ('" + name + "', " + to_string(duration) + ", '" + desc + "', " + to_string(price) + ")";
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\n\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
         }
         else {
             int newId = mysql_insert_id(conn);
 
-            cout << "\n\033[32m[+] Service Type Added Successfully!\033[0m" << endl;
+            showSuccess("Service Type Added Successfully!");
 
             string confirmQ = "SELECT * FROM SERVICE_TYPE WHERE serviceTypeId = " + to_string(newId);
             if (mysql_query(conn, confirmQ.c_str()) == 0) {
@@ -75,7 +76,7 @@ void searchServiceType() {
             "OR serviceDescription LIKE '%" + term + "%' ORDER BY serviceName";
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -84,7 +85,7 @@ void searchServiceType() {
         int num_rows = mysql_num_rows(result);
 
         if (num_rows == 0) {
-            cout << "\n\033[31m[-] No services found matching '" << term << "'\033[0m" << endl;
+            showError("No services found matching '" + term + "'");
         }
         else {
             cout << "\n\033[1;97m=== Search Results (" << num_rows << " found) ===\033[0m" << endl;
@@ -98,7 +99,7 @@ void searchServiceType() {
                 string name = row[1];
                 string duration = string(row[2]) + " min";
                 string price = row[4];
-                string desc = row[3] ? row[3] : "-";
+                string desc = row[3] ? row[3] : u8"─";
 
                 int colWidth = 35;
                 int textMax = 32;
@@ -106,7 +107,7 @@ void searchServiceType() {
 
                 if (len == 0) {
                     cout << left << setw(5) << id << setw(25) << name << setw(12) << duration
-                        << setw(12) << price << setw(colWidth) << "-" << endl;
+                        << setw(12) << price << setw(colWidth) << u8"─" << endl;
                     continue;
                 }
 
@@ -158,7 +159,7 @@ void viewServiceTypes() {
     mysql_free_result(result);
 
     if (totalRecords == 0) {
-        cout << "\033[33mNo service types found.\033[0m" << endl;
+        showWarning("No service types found.");
         pause();
         return;
     }
@@ -175,7 +176,7 @@ void viewServiceTypes() {
             to_string(recordsPerPage) + " OFFSET " + to_string(offset);
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -191,7 +192,7 @@ void viewServiceTypes() {
             string name = row[1];
             string duration = string(row[2]) + " min";
             string price = row[4];
-            string desc = row[3] ? row[3] : "-";
+            string desc = row[3] ? row[3] : u8"─";
 
             int colWidth = 35;
             int textMax = 32;
@@ -199,7 +200,7 @@ void viewServiceTypes() {
 
             if (len == 0) {
                 cout << left << setw(5) << id << setw(25) << name << setw(12) << duration
-                    << setw(12) << price << setw(colWidth) << "-" << endl;
+                    << setw(12) << price << setw(colWidth) << u8"─" << endl;
                 continue;
             }
 
@@ -256,11 +257,11 @@ void updateServiceType() {
             "OR serviceDescription LIKE '%" + search + "%' "
             "ORDER BY serviceName";
 
-        if (mysql_query(conn, query.c_str())) { cout << "\033[31m[-] Error: " << mysql_error(conn) << endl; return; }
+        if (mysql_query(conn, query.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
 
         MYSQL_RES* result = mysql_store_result(conn);
         if (mysql_num_rows(result) == 0) {
-            cout << "\033[31m[-] No service found.\033[0m" << endl; mysql_free_result(result); pause(); return;
+            showError("No service found."); mysql_free_result(result); pause(); return;
         }
 
         cout << "\n\033[1;97m=== Matching Services ===\033[0m" << endl;
@@ -272,14 +273,14 @@ void updateServiceType() {
             string id = row[0];
             string name = row[1];
             string price = row[4];
-            string desc = row[3] ? row[3] : "-";
+            string desc = row[3] ? row[3] : u8"─";
 
             int colWidth = 35;
             int textMax = 32;
             int len = desc.length();
 
             if (len == 0) {
-                cout << left << setw(5) << id << setw(25) << name << setw(10) << price << setw(colWidth) << "-" << endl;
+                cout << left << setw(5) << id << setw(25) << name << setw(10) << price << setw(colWidth) << u8"─" << endl;
                 continue;
             }
 
@@ -311,10 +312,10 @@ void updateServiceType() {
         updateQ += " WHERE serviceTypeId=" + to_string(id);
 
         if (mysql_query(conn, updateQ.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
         }
         else {
-            cout << "\n\033[32m[+] Service Updated Successfully!\033[0m" << endl;
+            showSuccess("Service Updated Successfully!");
 
             string confirmQ = "SELECT * FROM SERVICE_TYPE WHERE serviceTypeId = " + to_string(id);
             mysql_query(conn, confirmQ.c_str());
@@ -329,7 +330,7 @@ void updateServiceType() {
                 string name = row[1];
                 string duration = string(row[2]) + " min";
                 string price = row[4];
-                string desc = row[3] ? row[3] : "-";
+                string desc = row[3] ? row[3] : u8"─";
 
                 int colWidth = 35;
                 int textMax = 32;

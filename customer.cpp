@@ -1,6 +1,7 @@
 ﻿#include "customer.h"
 #include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // ADD CUSTOMER
@@ -21,7 +22,7 @@ void addCustomer() {
         MYSQL_RES* res = mysql_store_result(conn);
         MYSQL_ROW row = mysql_fetch_row(res);
         if (atoi(row[0]) > 0) {
-            cout << "\n\033[31m[-] Error: Phone number '" << phone << "' is already registered.\033[0m" << endl;
+            showError("Phone number '" + phone + "' is already registered.");
             mysql_free_result(res);
             pause(); return;
         }
@@ -35,7 +36,7 @@ void addCustomer() {
         res = mysql_store_result(conn);
         row = mysql_fetch_row(res);
         if (atoi(row[0]) > 0) {
-            cout << "\n\033[31m[-] Error: Email '" << email << "' is already registered.\033[0m" << endl;
+            showError("Email '" + email + "' is already registered.");
             mysql_free_result(res);
             pause(); return;
         }
@@ -48,12 +49,12 @@ void addCustomer() {
             "VALUES ('" + name + "', '" + phone + "', '" + email + "', '" + address + "', CURDATE())";
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\n\033[31m[-] Error adding customer: " << mysql_error(conn) << endl;
+            showError("Error adding customer: " + string(mysql_error(conn)));
         }
         else {
             int newId = mysql_insert_id(conn);
 
-            cout << "\n\033[32m[+] Customer Added Successfully!\033[0m" << endl;
+            showSuccess("Customer Added Successfully!");
 
             string confirmQuery = "SELECT customerId, customerName, phoneNumber, email FROM CUSTOMER "
                 "WHERE customerId = " + to_string(newId);
@@ -98,7 +99,7 @@ void searchCustomer() {
             "ORDER BY customerName ASC";
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -107,7 +108,7 @@ void searchCustomer() {
         int num_rows = mysql_num_rows(result);
 
         if (num_rows == 0) {
-            cout << "\n\033[31m[-] No records found matching '" << term << "'\033[0m" << endl;
+            showError("No records found matching '" + term + "'");
         }
         else {
             cout << "\n\033[1;97m=== Search Results (" << num_rows << " found) ===\033[0m" << endl;
@@ -144,7 +145,7 @@ void viewCustomers() {
 
     string countQuery = "SELECT COUNT(*) FROM CUSTOMER";
     if (mysql_query(conn, countQuery.c_str())) {
-        cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+        showError("Error: " + string(mysql_error(conn)));
         pause();
         return;
     }
@@ -155,7 +156,7 @@ void viewCustomers() {
     mysql_free_result(result);
 
     if (totalRecords == 0) {
-        cout << "\n\033[31m[-] No customers found in the database.\033[0m" << endl;
+        showError("No customers found in the database.");
         pause();
         return;
     }
@@ -173,7 +174,7 @@ void viewCustomers() {
             " OFFSET " + to_string(offset);
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -220,10 +221,10 @@ void updateCustomer() {
         string query = "SELECT customerId, customerName, phoneNumber, email, address FROM CUSTOMER "
             "WHERE (customerName LIKE '%" + term + "%' OR phoneNumber LIKE '%" + term + "%' OR email LIKE '%" + term + "%')";
 
-        if (mysql_query(conn, query.c_str())) { cout << "\033[31m[-] Error\033[0m" << endl; return; }
+        if (mysql_query(conn, query.c_str())) { showError("Database error"); return; }
         MYSQL_RES* res = mysql_store_result(conn);
 
-        if (mysql_num_rows(res) == 0) { cout << "\033[31m[-] No match found.\033[0m" << endl; pause(); return; }
+        if (mysql_num_rows(res) == 0) { showError("No match found."); pause(); return; }
 
         cout << "\n\033[1;97m=== Matches ===\033[0m" << endl;
         cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Name" << setw(15) << "Phone" << "\033[0m" << endl;
@@ -249,10 +250,10 @@ void updateCustomer() {
         updateQ += " WHERE customerId=" + to_string(id);
 
         if (mysql_query(conn, updateQ.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
         }
         else {
-            cout << "\n\033[32m[+] Customer Updated Successfully!\033[0m" << endl;
+            showSuccess("Customer Updated Successfully!");
 
             query = "SELECT customerId, customerName, phoneNumber, email FROM CUSTOMER WHERE customerId=" + to_string(id);
             mysql_query(conn, query.c_str());

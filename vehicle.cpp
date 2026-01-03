@@ -1,6 +1,7 @@
 ﻿#include "vehicle.h"
 #include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // ADD VEHICLE
@@ -18,7 +19,7 @@ void addVehicle() {
             "OR email LIKE '%" + searchTerm + "%')";
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\n\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -27,7 +28,7 @@ void addVehicle() {
         int num_rows = mysql_num_rows(result);
 
         if (num_rows == 0) {
-            cout << "\n\033[31m[-] No active customer found matching '" << searchTerm << "'\033[0m" << endl;
+            showError("No active customer found matching '" + searchTerm + "'");
             cout << "Please add the customer first.\033[0m" << endl;
             mysql_free_result(result);
             pause();
@@ -49,11 +50,11 @@ void addVehicle() {
         // Verify customer exists
         query = "SELECT customerId, customerName FROM CUSTOMER WHERE customerId = " + to_string(customerId);
         if (mysql_query(conn, query.c_str())) {
-            cout << "\n\033[31m[-] Error: " << mysql_error(conn) << endl; return;
+            showError("Error: " + string(mysql_error(conn))); return;
         }
         result = mysql_store_result(conn);
         if (mysql_num_rows(result) == 0) {
-            cout << "\n\033[31m[-] Invalid Customer ID.\033[0m" << endl;
+            showError("Invalid Customer ID.");
             mysql_free_result(result);
             pause();
             return;
@@ -80,7 +81,7 @@ void addVehicle() {
             mysql_free_result(res);
 
             if (count > 0) {
-                cout << "\n\033[31m[-] Error: Vehicle with plate '" << licensePlate << "' is already registered.\033[0m" << endl;
+                showError("Vehicle with plate '" + licensePlate + "' is already registered.");
                 if (!getConfirmation("Do you want to add a different vehicle?")) break;
                 continue;
             }
@@ -95,14 +96,14 @@ void addVehicle() {
                 brand + "', '" + model + "', '" + year + "', '" + color + "')";
 
             if (mysql_query(conn, query.c_str())) {
-                cout << "\n\033[31m[-] Error adding vehicle: " << mysql_error(conn) << endl;
+                showError("Error adding vehicle: " + string(mysql_error(conn)));
             }
             else {
-                cout << "\n\033[32m[+] Vehicle Added Successfully!\033[0m" << endl;
+                showSuccess("Vehicle Added Successfully!");
                 cout << "\033[90m    License : " << licensePlate << "\033[0m" << endl;
                 cout << "\033[90m    Vehicle : " << brand << " " << model << " (" << color << ")\033[0m" << endl;
 
-                cout << "\n\033[32m[+] Updating vehicle list...\033[0m" << endl;
+                showSuccess("Updating vehicle list...");
                 displayCustomerVehicles(customerId);
             }
 
@@ -138,7 +139,7 @@ void searchVehicle() {
             "ORDER BY v.licensePlate";
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -147,7 +148,7 @@ void searchVehicle() {
         int num_rows = mysql_num_rows(result);
 
         if (num_rows == 0) {
-            cout << "\n\033[31m[-] No vehicles found matching '" << term << "'\033[0m" << endl;
+            showError("No vehicles found matching '" + term + "'");
         }
         else {
             cout << "\n\033[1;97m=== Search Results (" << num_rows << " found) ===\033[0m" << endl;
@@ -183,7 +184,7 @@ void viewVehicles() {
     int totalRecords = 0;
 
     string countQuery = "SELECT COUNT(*) FROM VEHICLE v JOIN CUSTOMER c ON v.customerId = c.customerId";
-    if (mysql_query(conn, countQuery.c_str())) { cout << "\033[31m[-] Error: " << mysql_error(conn) << endl; return; }
+    if (mysql_query(conn, countQuery.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
 
     result = mysql_store_result(conn);
     row = mysql_fetch_row(result);
@@ -191,7 +192,7 @@ void viewVehicles() {
     mysql_free_result(result);
 
     if (totalRecords == 0) {
-        cout << "\033[33mNo vehicles found for active customers.\033[0m" << endl;
+        showWarning("No vehicles found for active customers.");
         pause();
         return;
     }
@@ -211,7 +212,7 @@ void viewVehicles() {
             " OFFSET " + to_string(offset);
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -263,7 +264,7 @@ void updateVehicle() {
         if (mysql_query(conn, query.c_str())) return;
         MYSQL_RES* res = mysql_store_result(conn);
 
-        if (mysql_num_rows(res) == 0) { cout << "\033[31m[-] No match.\033[0m" << endl; pause(); return; }
+        if (mysql_num_rows(res) == 0) { showError("No match."); pause(); return; }
 
         cout << "\n\033[1;97m=== Matches ===\033[0m" << endl;
         cout << "\033[36m" << left << setw(5) << "ID" << setw(15) << "License" << setw(15) << "Brand" << setw(20) << "Owner" << "\033[0m" << endl;
@@ -290,10 +291,10 @@ void updateVehicle() {
         updateQ += " WHERE vehicleId=" + to_string(id);
 
         if (mysql_query(conn, updateQ.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
         }
         else {
-            cout << "\n\033[32m[+] Vehicle Updated Successfully!\033[0m" << endl;
+            showSuccess("Vehicle Updated Successfully!");
 
             query = "SELECT vehicleId, licensePlate, brand, model, color FROM VEHICLE WHERE vehicleId=" + to_string(id);
             mysql_query(conn, query.c_str());
@@ -328,13 +329,13 @@ void viewVehicleServiceHistory() {
             "WHERE v.licensePlate LIKE '%" + term + "%' "
             "OR c.customerName LIKE '%" + term + "%'";
 
-        if (mysql_query(conn, query.c_str())) { cout << "\033[31m[-] Error: " << mysql_error(conn) << endl; return; }
+        if (mysql_query(conn, query.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
 
         MYSQL_RES* res = mysql_store_result(conn);
         int num_rows = mysql_num_rows(res);
 
         if (num_rows == 0) {
-            cout << "\n\033[31m[-] No vehicle found matching '" << term << "'\033[0m" << endl;
+            showError("No vehicle found matching '" + term + "'");
             mysql_free_result(res);
             pause();
             return;
@@ -363,14 +364,14 @@ void viewVehicleServiceHistory() {
             "WHERE a.vehicleId = " + to_string(vehicleId) + " "
             "GROUP BY a.appointmentId ORDER BY st.slotDate DESC";
 
-        if (mysql_query(conn, query.c_str())) { cout << "\033[31m[-] Error: " << mysql_error(conn) << endl; pause(); return; }
+        if (mysql_query(conn, query.c_str())) { showError("Error: " + string(mysql_error(conn))); pause(); return; }
 
         res = mysql_store_result(conn);
         num_rows = mysql_num_rows(res);
 
         cout << "\n\033[1;97m=== Service History ===\033[0m" << endl;
         if (num_rows == 0) {
-            cout << "\033[33m[i] No service history records found for this vehicle.\033[0m" << endl;
+            showInfo("No service history records found for this vehicle.");
         }
         else {
             cout << "\033[36m" << left << setw(5) << "ID" << setw(12) << "Date" << setw(10) << "Time"
@@ -381,7 +382,7 @@ void viewVehicleServiceHistory() {
                 string id = row[0];
                 string date = row[1];
                 string time = row[2];
-                string rawServices = row[3] ? row[3] : "-";
+                string rawServices = row[3] ? row[3] : u8"─";
                 string status = row[4];
 
                 int colWidth = 45;

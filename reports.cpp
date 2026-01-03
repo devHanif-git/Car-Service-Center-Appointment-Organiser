@@ -1,6 +1,7 @@
 ﻿#include "reports.h"
 #include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // HELPER: REPORT HEADER GENERATOR
@@ -49,7 +50,18 @@ void printReportFooter(int totalRecords) {
 }
 
 void printSectionDivider(const string& sectionTitle) {
-    cout << "\n\033[36m" << u8"┌─── " << "\033[1;97m" << sectionTitle << "\033[0;36m" << u8" " << string(60 - sectionTitle.length(), '-') << u8"┐" << "\033[0m" << endl;
+    int totalWidth = 80;
+    int titleLen = (int)sectionTitle.length();
+    int innerWidth = totalWidth - 2; // -2 for corners ┌ ┐
+    int availableForDashes = innerWidth - titleLen - 2; // -2 for spaces around title
+    int leftDashes = availableForDashes / 2;
+    int rightDashes = availableForDashes - leftDashes;
+
+    cout << "\n\033[36m" << u8"┌"
+         << repeatString(u8"─", leftDashes)
+         << " \033[1;97m" << sectionTitle << "\033[0;36m "
+         << repeatString(u8"─", rightDashes)
+         << u8"┐" << "\033[0m" << endl;
 }
 
 // ============================================
@@ -81,7 +93,7 @@ void viewAppointmentSchedule() {
         string endDate = getSmartDateInput("Enter End Date (YYYYMMDD)  ");
 
         if (startDate > endDate) {
-            cout << "\n\033[33m[!] Invalid Range: Start Date cannot be after End Date.\033[0m" << endl;
+            showWarning("Invalid Range: Start Date cannot be after End Date.");
             pause();
             return;
         }
@@ -99,7 +111,7 @@ void viewAppointmentSchedule() {
             "ORDER BY st.slotDate ASC, st.slotTime ASC";
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Database Error: " << mysql_error(conn) << endl;
+            showError("Database Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -108,7 +120,7 @@ void viewAppointmentSchedule() {
         int totalAppointments = mysql_num_rows(result);
 
         if (totalAppointments == 0) {
-            cout << "\n\033[31m[-] No appointments found for the selected period.\033[0m" << endl;
+            showError("No appointments found for the selected period.");
             mysql_free_result(result);
             pause();
             return;
@@ -141,7 +153,7 @@ void viewAppointmentSchedule() {
                     << setw(8) << "Bay"
                     << setw(12) << "Status"
                     << "\033[0m" << endl;
-                cout << "\033[90m" << string(80, '-') << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 80) << "\033[0m" << endl;
 
                 currentDate = rowDate;
                 dailyCount = 0;
@@ -230,7 +242,7 @@ void viewFinancialReport() {
         string endDate = getSmartDateInput("Enter End Date (YYYYMMDD)  ");
 
         if (startDate > endDate) {
-            cout << "\n\033[33m[!] Invalid Range: Start Date cannot be after End Date.\033[0m" << endl;
+            showWarning("Invalid Range: Start Date cannot be after End Date.");
             pause();
             return;
         }
@@ -253,7 +265,7 @@ void viewFinancialReport() {
             "GROUP BY day ORDER BY day";
 
         if (mysql_query(conn, dailyQuery.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -266,7 +278,7 @@ void viewFinancialReport() {
             << setw(15) << "Services"
             << setw(18) << "Revenue (RM)"
             << "\033[0m" << endl;
-        cout << "\033[90m" << string(65, '-') << "\033[0m" << endl;
+        cout << "\033[90m" << repeatString(u8"─", 65) << "\033[0m" << endl;
 
         MYSQL_ROW row;
         double totalRevenue = 0;
@@ -287,7 +299,7 @@ void viewFinancialReport() {
         }
         mysql_free_result(dailyResult);
 
-        cout << "\033[90m" << string(65, '-') << "\033[0m" << endl;
+        cout << "\033[90m" << repeatString(u8"─", 65) << "\033[0m" << endl;
         cout << "\033[1;32m" << left << setw(15) << "TOTAL"
             << setw(15) << totalAppointments
             << setw(15) << totalServices
@@ -318,7 +330,7 @@ void viewFinancialReport() {
                 << setw(15) << "Unit Price"
                 << setw(15) << "Total (RM)"
                 << "\033[0m" << endl;
-            cout << "\033[90m" << string(70, '-') << "\033[0m" << endl;
+            cout << "\033[90m" << repeatString(u8"─", 70) << "\033[0m" << endl;
 
             while ((row = mysql_fetch_row(serviceResult))) {
                 cout << left
@@ -360,7 +372,7 @@ void viewFinancialReport() {
                 << setw(30) << "Services"
                 << setw(12) << "Amount"
                 << "\033[0m" << endl;
-            cout << "\033[90m" << string(90, '-') << "\033[0m" << endl;
+            cout << "\033[90m" << repeatString(u8"─", 90) << "\033[0m" << endl;
 
             while ((row = mysql_fetch_row(transResult))) {
                 string services = row[4];
@@ -410,7 +422,7 @@ void viewMechanicPerformance() {
         string endDate = getSmartDateInput("Enter End Date (YYYYMMDD)  ");
 
         if (startDate > endDate) {
-            cout << "\n\033[33m[!] Invalid Range: Start Date cannot be after End Date.\033[0m" << endl;
+            showWarning("Invalid Range: Start Date cannot be after End Date.");
             pause();
             return;
         }
@@ -435,7 +447,7 @@ void viewMechanicPerformance() {
             "ORDER BY revenue DESC";
 
         if (mysql_query(conn, mechQuery.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -453,7 +465,7 @@ void viewMechanicPerformance() {
             << setw(12) << "Efficiency"
             << setw(15) << "Revenue"
             << "\033[0m" << endl;
-        cout << "\033[90m" << string(87, '-') << "\033[0m" << endl;
+        cout << "\033[90m" << repeatString(u8"─", 87) << "\033[0m" << endl;
 
         MYSQL_ROW row;
         double totalRevenue = 0;
@@ -483,7 +495,7 @@ void viewMechanicPerformance() {
                     << effColor << setw(12) << (to_string((int)efficiency) + "%") << "\033[0m"
                     << "RM " << fixed << setprecision(2) << revenue;
             } else {
-                cout << setw(15) << "-" << setw(15) << "-" << setw(12) << "-" << "-";
+                cout << setw(15) << u8"─" << setw(15) << u8"─" << setw(12) << u8"─" << u8"─";
             }
             cout << endl;
 
@@ -495,7 +507,7 @@ void viewMechanicPerformance() {
         }
         mysql_free_result(mechResult);
 
-        cout << "\033[90m" << string(87, '-') << "\033[0m" << endl;
+        cout << "\033[90m" << repeatString(u8"─", 87) << "\033[0m" << endl;
         cout << "\033[1;32m" << left << setw(20) << "TOTAL"
             << setw(10) << totalJobs
             << setw(15) << "" << setw(15) << "" << setw(12) << ""
@@ -531,7 +543,7 @@ void viewMechanicPerformance() {
                     << setw(10) << "Price"
                     << setw(12) << "Vehicle"
                     << "\033[0m" << endl;
-                cout << "\033[90m" << string(79, '-') << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 79) << "\033[0m" << endl;
 
                 while ((row = mysql_fetch_row(jobResult))) {
                     cout << left
@@ -577,7 +589,7 @@ void viewServiceTrends() {
         string endDate = getSmartDateInput("Enter End Date (YYYYMMDD)  ");
 
         if (startDate > endDate) {
-            cout << "\n\033[33m[!] Invalid Range: Start Date cannot be after End Date.\033[0m" << endl;
+            showWarning("Invalid Range: Start Date cannot be after End Date.");
             pause();
             return;
         }
@@ -605,7 +617,7 @@ void viewServiceTrends() {
             "ORDER BY bookings DESC, sv.serviceName";
 
         if (mysql_query(conn, rankQuery.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -621,7 +633,7 @@ void viewServiceTrends() {
             << setw(10) << "Bookings"
             << setw(15) << "Revenue"
             << "\033[0m" << endl;
-        cout << "\033[90m" << string(84, '-') << "\033[0m" << endl;
+        cout << "\033[90m" << repeatString(u8"─", 84) << "\033[0m" << endl;
 
         MYSQL_ROW row;
         int rank = 1;
@@ -655,14 +667,14 @@ void viewServiceTrends() {
                 totalBookings += bookings;
                 totalRevenue += revenue;
             } else {
-                cout << setw(10) << "-" << "-";
+                cout << setw(10) << u8"─" << u8"─";
             }
             cout << endl;
             rank++;
         }
         mysql_free_result(rankResult);
 
-        cout << "\033[90m" << string(84, '-') << "\033[0m" << endl;
+        cout << "\033[90m" << repeatString(u8"─", 84) << "\033[0m" << endl;
         cout << "\033[1;32m" << left << setw(35) << "     TOTAL"
             << setw(12) << "" << setw(12) << ""
             << setw(10) << totalBookings
@@ -686,7 +698,7 @@ void viewServiceTrends() {
                 MYSQL_RES* trendResult = mysql_store_result(conn);
 
                 cout << "\033[36m" << left << setw(15) << "Date" << "Bookings" << "\033[0m" << endl;
-                cout << "\033[90m" << string(40, '-') << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 40) << "\033[0m" << endl;
 
                 while ((row = mysql_fetch_row(trendResult))) {
                     int bookings = atoi(row[1]);
@@ -774,7 +786,7 @@ void viewCustomerAnalytics() {
                 << setw(10) << "Services"
                 << setw(15) << "Total Spent"
                 << "\033[0m" << endl;
-            cout << "\033[90m" << string(73, '-') << "\033[0m" << endl;
+            cout << "\033[90m" << repeatString(u8"─", 73) << "\033[0m" << endl;
 
             int rank = 1;
             double grandTotal = 0;
@@ -824,7 +836,7 @@ void viewCustomerAnalytics() {
             }
             mysql_free_result(result);
 
-            cout << "\033[90m" << string(73, '-') << "\033[0m" << endl;
+            cout << "\033[90m" << repeatString(u8"─", 73) << "\033[0m" << endl;
             cout << "\033[1;32m     TOP 10 VIP TOTAL CONTRIBUTION: RM " << fixed << setprecision(2) << grandTotal << "\033[0m" << endl;
 
             printReportFooter(rank - 1);
@@ -865,7 +877,7 @@ void viewCustomerAnalytics() {
                 << setw(12) << "Last Visit"
                 << setw(12) << "Spent"
                 << "\033[0m" << endl;
-            cout << "\033[90m" << string(79, '-') << "\033[0m" << endl;
+            cout << "\033[90m" << repeatString(u8"─", 79) << "\033[0m" << endl;
 
             while ((row = mysql_fetch_row(result))) {
                 cout << left
@@ -889,7 +901,7 @@ void viewCustomerAnalytics() {
             printReportHeader("DORMANT CUSTOMERS REPORT", "Inactive > 6 Months", "Present");
 
             printSectionDivider("CUSTOMERS REQUIRING RE-ENGAGEMENT");
-            cout << "\033[33m[!] RECOMMENDATION: Contact these customers with special offers.\033[0m\n" << endl;
+            showWarning("RECOMMENDATION: Contact these customers with special offers.\n");
 
             string query = "SELECT c.customerId, c.customerName, c.phoneNumber, c.email, "
                 "MAX(st.slotDate) as last_visit, "
@@ -908,7 +920,7 @@ void viewCustomerAnalytics() {
             int dormantCount = mysql_num_rows(result);
 
             if (dormantCount == 0) {
-                cout << "\033[32m[+] Excellent! No dormant customers found.\033[0m" << endl;
+                showSuccess("Excellent! No dormant customers found.");
             } else {
                 cout << "\033[36m" << left
                     << setw(20) << "Customer"
@@ -917,7 +929,7 @@ void viewCustomerAnalytics() {
                     << setw(12) << "Last Visit"
                     << setw(12) << "Days Ago"
                     << "\033[0m" << endl;
-                cout << "\033[90m" << string(84, '-') << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 84) << "\033[0m" << endl;
 
                 while ((row = mysql_fetch_row(result))) {
                     int daysInactive = atoi(row[5]);
@@ -926,7 +938,7 @@ void viewCustomerAnalytics() {
                     cout << left
                         << setw(20) << string(row[1]).substr(0, 18)
                         << setw(15) << row[2]
-                        << setw(25) << (row[3] ? string(row[3]).substr(0, 23) : "-")
+                        << setw(25) << (row[3] ? string(row[3]).substr(0, 23) : u8"─")
                         << setw(12) << row[4]
                         << urgency << setw(12) << (string(row[5]) + " days") << "\033[0m" << endl;
                 }
@@ -962,7 +974,7 @@ void viewCustomerAnalytics() {
                 MYSQL_RES* monthResult = mysql_store_result(conn);
 
                 cout << "\033[36m" << left << setw(15) << "Month" << "New Customers" << "\033[0m" << endl;
-                cout << "\033[90m" << string(40, '-') << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 40) << "\033[0m" << endl;
 
                 int total = 0;
                 while ((row = mysql_fetch_row(monthResult))) {
@@ -975,7 +987,7 @@ void viewCustomerAnalytics() {
                 }
                 mysql_free_result(monthResult);
 
-                cout << "\033[90m" << string(40, '-') << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 40) << "\033[0m" << endl;
                 cout << "\033[1;32mTOTAL NEW CUSTOMERS: " << total << "\033[0m" << endl;
             }
 
@@ -998,14 +1010,14 @@ void viewCustomerAnalytics() {
                     << setw(25) << "Email"
                     << setw(12) << "Reg. Date"
                     << "\033[0m" << endl;
-                cout << "\033[90m" << string(77, '-') << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 77) << "\033[0m" << endl;
 
                 while ((row = mysql_fetch_row(listResult))) {
                     cout << left
                         << setw(5) << row[0]
                         << setw(20) << string(row[1]).substr(0, 18)
                         << setw(15) << row[2]
-                        << setw(25) << (row[3] ? string(row[3]).substr(0, 23) : "-")
+                        << setw(25) << (row[3] ? string(row[3]).substr(0, 23) : u8"─")
                         << setw(12) << row[4] << endl;
                 }
                 mysql_free_result(listResult);
@@ -1036,7 +1048,7 @@ void viewCustomerAnalytics() {
             result = mysql_store_result(conn);
 
             if (mysql_num_rows(result) == 0) {
-                cout << "\n\033[31m[-] No customers found matching '" << term << "'.\033[0m" << endl;
+                showError("No customers found matching '" + term + "'.");
                 mysql_free_result(result);
                 pause();
                 break;
@@ -1045,7 +1057,7 @@ void viewCustomerAnalytics() {
             cout << "\n\033[1;97m=== Matching Customers ===\033[0m" << endl;
             cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Name"
                 << setw(15) << "Phone" << setw(10) << "Vehicles" << "\033[0m" << endl;
-            cout << "\033[90m" << string(55, '-') << "\033[0m" << endl;
+            cout << "\033[90m" << repeatString(u8"─", 55) << "\033[0m" << endl;
 
             while ((row = mysql_fetch_row(result))) {
                 cout << left << setw(5) << row[0] << setw(25) << row[1]
@@ -1064,7 +1076,7 @@ void viewCustomerAnalytics() {
             result = mysql_store_result(conn);
 
             if (mysql_num_rows(result) == 0) {
-                cout << "\033[31m[-] Invalid Customer ID.\033[0m" << endl;
+                showError("Invalid Customer ID.");
                 mysql_free_result(result);
                 pause();
                 break;
@@ -1103,7 +1115,7 @@ void viewCustomerAnalytics() {
                     << setw(8) << "Year"
                     << setw(10) << "Color"
                     << "\033[0m" << endl;
-                cout << "\033[90m" << string(65, '-') << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 65) << "\033[0m" << endl;
 
                 while ((row = mysql_fetch_row(vehResult))) {
                     cout << left
@@ -1143,7 +1155,7 @@ void viewCustomerAnalytics() {
                     << setw(12) << "Amount"
                     << setw(10) << "Status"
                     << "\033[0m" << endl;
-                cout << "\033[90m" << string(87, '-') << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 87) << "\033[0m" << endl;
 
                 double totalSpent = 0;
                 while ((row = mysql_fetch_row(histResult))) {
@@ -1166,7 +1178,7 @@ void viewCustomerAnalytics() {
                 }
                 mysql_free_result(histResult);
 
-                cout << "\033[90m" << string(87, '-') << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 87) << "\033[0m" << endl;
                 cout << "\033[1;32mTOTAL LIFETIME SPENDING: RM " << fixed << setprecision(2) << totalSpent << "\033[0m" << endl;
 
                 printReportFooter(histCount);

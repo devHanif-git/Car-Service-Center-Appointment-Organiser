@@ -1,6 +1,7 @@
 ﻿#include "appointment.h"
 #include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // VIEW AVAILABLE SLOTS
@@ -15,7 +16,7 @@ void viewAvailableSlots() {
         string endDate = getSmartDateInput("Enter End Date (YYYYMMDD)  ", false);
 
         if (startDate > endDate) {
-            cout << "\n\033[33m[!] Invalid Range: Start Date cannot be after End Date.\033[0m" << endl;
+            showWarning("Invalid Range: Start Date cannot be after End Date.");
             pause();
             return;
         }
@@ -40,7 +41,7 @@ void viewAvailableSlots() {
         string countQuery = "SELECT COUNT(*) FROM (" + selectClause + whereClause + ") AS temp_table";
 
         if (mysql_query(conn, countQuery.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -51,7 +52,7 @@ void viewAvailableSlots() {
         mysql_free_result(result);
 
         if (totalRecords == 0) {
-            cout << "\n\033[33m[!] Fully Booked or No Slots generated for this period.\033[0m" << endl;
+            showWarning("Fully Booked or No Slots generated for this period.");
             pause();
             return;
         }
@@ -71,7 +72,7 @@ void viewAvailableSlots() {
                 "LIMIT " + to_string(recordsPerPage) + " OFFSET " + to_string(offset);
 
             if (mysql_query(conn, dataQuery.c_str())) {
-                cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+                showError("Error: " + string(mysql_error(conn)));
                 break;
             }
 
@@ -83,7 +84,7 @@ void viewAvailableSlots() {
                 string rowDate = row[0];
 
                 if (rowDate != currentHeaderDate) {
-                    cout << "\n\033[1;97m[ " << rowDate << " ]\033[0m" << endl;
+                    cout << "\033[1;97m[ " << rowDate << " ]\033[0m" << endl;
                     cout << "\033[36m" << left << setw(5) << "ID" << setw(15) << "Time" << setw(20) << "Free Bays" << "\033[0m" << endl;
                     cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
                     currentHeaderDate = rowDate;
@@ -128,11 +129,11 @@ void createAppointment() {
             "FROM VEHICLE v JOIN CUSTOMER c ON v.customerId = c.customerId "
             "WHERE (v.licensePlate LIKE '%" + term + "%' OR v.brand LIKE '%" + term + "%' OR c.customerName LIKE '%" + term + "%') ";
 
-        if (mysql_query(conn, query.c_str())) { cout << "\033[31m[-] Error: " << mysql_error(conn) << endl; return; }
+        if (mysql_query(conn, query.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
         MYSQL_RES* res = mysql_store_result(conn);
 
         if (mysql_num_rows(res) == 0) {
-            cout << "\n\033[31m[-] No active vehicle found matching '" << term << "'\033[0m" << endl;
+            showError("No active vehicle found matching '" + term + "'");
             mysql_free_result(res); pause(); return;
         }
 
@@ -192,11 +193,11 @@ void createAppointment() {
             "AND (slotDate != CURDATE() OR slotTime > CURTIME()) "
             "ORDER BY slotTime";
 
-        if (mysql_query(conn, query.c_str())) { cout << "\033[31m[-] Invalid Date.\033[0m" << endl; return; }
+        if (mysql_query(conn, query.c_str())) { showError("Invalid Date."); return; }
         res = mysql_store_result(conn);
 
         if (mysql_num_rows(res) == 0) {
-            cout << "\033[31m[-] No slots available (or created) for " << rawDate << ".\033[0m" << endl;
+            showError("No slots available (or created) for " + rawDate + ".");
             mysql_free_result(res); pause(); return;
         }
 
@@ -223,7 +224,7 @@ void createAppointment() {
             }
 
             if (isValid) break;
-            cout << "\033[31m[-] That slot ID is invalid or full. Please select from the list above.\033[0m" << endl;
+            showError("That slot ID is invalid or full. Please select from the list above.");
         }
 
         query = "SELECT slotTime FROM SLOT_TIME WHERE slotTimeId = " + to_string(slotTimeId);
@@ -264,8 +265,8 @@ void createAppointment() {
         mysql_free_result(res);
 
         if (bayId == 0) {
-            cout << "\n\033[31m[-] System Alert: No Service Bays are available for " << totalDuration << " mins at " << startTime << ".\033[0m" << endl;
-            cout << "\033[31m[-] Please choose a different time slot or date.\033[0m" << endl;
+            showError("System Alert: No Service Bays are available for " + to_string(totalDuration) + " mins at " + startTime + ".");
+            showError("Please choose a different time slot or date.");
             pause();
             return;
         }
@@ -278,7 +279,7 @@ void createAppointment() {
             ", '" + endTime + "', 'Scheduled', '" + notes + "', NOW())";
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
         }
         else {
             int appId = mysql_insert_id(conn);
@@ -291,9 +292,9 @@ void createAppointment() {
 
             mysql_query(conn, ("UPDATE SLOT_TIME SET currentBookings = currentBookings + 1 WHERE slotTimeId = " + to_string(slotTimeId)).c_str());
 
-            cout << "\n\033[32m[+] Appointment Created Successfully! (ID: " << appId << ")\033[0m" << endl;
-            cout << "\033[32m[+] Assigned to Bay ID: " << bayId << "\033[0m" << endl;
-            cout << "\033[32m[+] Estimated End Time: " << endTime << "\033[0m" << endl;
+            showSuccess("Appointment Created Successfully! (ID: " + to_string(appId) + ")");
+            showSuccess("Assigned to Bay ID: " + to_string(bayId));
+            showSuccess("Estimated End Time: " + endTime);
         }
 
     }
@@ -349,7 +350,7 @@ void viewAppointments() {
             "JOIN SLOT_TIME st ON a.slotTimeId = st.slotTimeId " + whereClause;
 
         if (mysql_query(conn, countQuery.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -360,7 +361,7 @@ void viewAppointments() {
         mysql_free_result(result);
 
         if (totalRecords == 0) {
-            cout << "\n\033[31m[-] No appointments found matching your criteria.\033[0m" << endl;
+            showError("No appointments found matching your criteria.");
             pause();
             return;
         }
@@ -391,7 +392,7 @@ void viewAppointments() {
                 "LIMIT " + to_string(recordsPerPage) + " OFFSET " + to_string(offset);
 
             if (mysql_query(conn, dataQuery.c_str())) {
-                cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+                showError("Error: " + string(mysql_error(conn)));
                 break;
             }
 
@@ -487,13 +488,13 @@ void updateAppointmentStatus() {
 
         query += "ORDER BY st.slotDate DESC, st.slotTime ASC";
 
-        if (mysql_query(conn, query.c_str())) { cout << "\033[31m[-] Error: " << mysql_error(conn) << endl; return; }
+        if (mysql_query(conn, query.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
 
         MYSQL_RES* res = mysql_store_result(conn);
         int num_rows = mysql_num_rows(res);
 
         if (num_rows == 0) {
-            cout << "\n\033[31m[-] No appointments found matching your criteria.\033[0m" << endl;
+            showError("No appointments found matching your criteria.");
             mysql_free_result(res);
             pause();
             return;
@@ -518,7 +519,7 @@ void updateAppointmentStatus() {
         res = mysql_store_result(conn);
 
         if (mysql_num_rows(res) == 0) {
-            cout << "\033[31m[-] Invalid ID selected.\033[0m" << endl;
+            showError("Invalid ID selected.");
             mysql_free_result(res);
             pause();
             return;
@@ -537,10 +538,10 @@ void updateAppointmentStatus() {
         query = "UPDATE APPOINTMENT SET status = '" + status[statusChoice] + "' WHERE appointmentId = " + to_string(appointmentId);
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\n\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
         }
         else {
-            cout << "\n\033[32m[+] Status Updated Successfully to: " << status[statusChoice] << endl;
+            showSuccess("Status Updated Successfully to: " + status[statusChoice]);
         }
 
     }
@@ -565,7 +566,7 @@ void manageServiceJobDetails() {
             "WHERE aps.staffId = " + to_string(currentStaffId) + " "
             "AND aps.serviceStatus = 'In Progress'";
 
-        if (mysql_query(conn, myJobQuery.c_str())) { cout << "\033[31m[-] Error: " << mysql_error(conn) << endl; return; }
+        if (mysql_query(conn, myJobQuery.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
         MYSQL_RES* myRes = mysql_store_result(conn);
         int myJobCount = mysql_num_rows(myRes);
 
@@ -581,7 +582,7 @@ void manageServiceJobDetails() {
             cout << "\033[90m" << u8"────────────────────────────────────────────────────────" << "\033[0m" << endl;
         }
         else {
-            cout << "\033[33m[i] You have no active jobs right now.\033[0m" << endl;
+            showInfo("You have no active jobs right now.");
         }
         mysql_free_result(myRes);
 
@@ -597,11 +598,11 @@ void manageServiceJobDetails() {
             "AND a.status IN ('Scheduled', 'In Progress') "
             "ORDER BY st.slotTime ASC";
 
-        if (mysql_query(conn, poolQuery.c_str())) { cout << "\033[31m[-] Error: " << mysql_error(conn) << endl; return; }
+        if (mysql_query(conn, poolQuery.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
         MYSQL_RES* poolRes = mysql_store_result(conn);
 
         if (mysql_num_rows(poolRes) == 0) {
-            cout << "\033[31m[-] No active appointments in the shop today.\033[0m" << endl;
+            showError("No active appointments in the shop today.");
         }
         else {
             cout << "\033[36m" << left << setw(5) << "ID" << setw(12) << "Plate" << setw(20) << "Customer"
@@ -616,7 +617,7 @@ void manageServiceJobDetails() {
         mysql_free_result(poolRes);
 
         // SELECT JOB
-        cout << "\n\033[36m[i] Enter Appointment ID to work on (or 0 to Exit)\033[0m" << endl;
+        showInfo("Enter Appointment ID to work on (or 0 to Exit)");
         int appointmentId = getValidInt("Enter ID", 0, 99999);
 
         if (appointmentId == 0) return;
@@ -652,7 +653,7 @@ void manageServiceJobDetails() {
             }
             mysql_free_result(res);
 
-            cout << "\n\033[36m[i] Enter Task ID to update status\033[0m" << endl;
+            showInfo("Enter Task ID to update status");
             int serviceId = getValidInt("Enter ID (or 0 to Finish/Back)", 0, 99999);
 
             if (serviceId == 0) break;
@@ -681,10 +682,10 @@ void manageServiceJobDetails() {
                     updateQ = "UPDATE APPOINTMENT_SERVICE SET serviceStatus = 'Completed', "
                         "actualDuration = TIMESTAMPDIFF(MINUTE, startedAt, NOW()) "
                         "WHERE appointmentServiceId = " + to_string(serviceId);
-                    cout << "\n\033[32m[+] Auto-calculating duration...\033[0m" << endl;
+                    showSuccess("Auto-calculating duration...");
                 }
                 else {
-                    cout << "\n\033[33m[!] Task was not marked 'In Progress' earlier.\033[0m" << endl;
+                    showWarning("Task was not marked 'In Progress' earlier.");
                     int manualDuration = getValidInt("Enter Actual Duration (minutes)", 1, 480);
                     updateQ = "UPDATE APPOINTMENT_SERVICE SET serviceStatus = 'Completed', "
                         "actualDuration = " + to_string(manualDuration) + ", startedAt = NOW(), "
@@ -698,7 +699,7 @@ void manageServiceJobDetails() {
             }
 
             if (mysql_query(conn, updateQ.c_str())) {
-                cout << "\033[31m[-] Update failed: " << mysql_error(conn) << endl;
+                showError("Update failed: " + string(mysql_error(conn)));
                 pause();
             }
             else {
@@ -710,10 +711,10 @@ void manageServiceJobDetails() {
                 mysql_free_result(res);
 
                 if (remainingTasks == 0) {
-                    cout << "\n\033[33m[!] SYSTEM ALERT: All tasks for this appointment are COMPLETED.\033[0m" << endl;
+                    showWarning("SYSTEM ALERT: All tasks for this appointment are COMPLETED.");
                     if (getConfirmation("Mark Main Appointment as 'Completed' (Release Bay)?")) {
                         mysql_query(conn, ("UPDATE APPOINTMENT SET status = 'Completed' WHERE appointmentId = " + to_string(appointmentId)).c_str());
-                        cout << "\033[32m[+] Job Done. Returning to menu...\033[0m" << endl;
+                        showSuccess("Job Done. Returning to menu...");
                         pause();
                         break;
                     }
@@ -753,13 +754,13 @@ void cancelAppointment() {
 
         query += "ORDER BY st.slotDate, st.slotTime";
 
-        if (mysql_query(conn, query.c_str())) { cout << "\033[31m[-] Error: " << mysql_error(conn) << endl; return; }
+        if (mysql_query(conn, query.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
 
         MYSQL_RES* res = mysql_store_result(conn);
         int num_rows = mysql_num_rows(res);
 
         if (num_rows == 0) {
-            cout << "\n\033[31m[-] No active appointments found.\033[0m" << endl;
+            showError("No active appointments found.");
             mysql_free_result(res);
             pause();
             return;
@@ -784,7 +785,7 @@ void cancelAppointment() {
         res = mysql_store_result(conn);
 
         if (mysql_num_rows(res) == 0) {
-            cout << "\033[31m[-] Invalid ID.\033[0m" << endl; mysql_free_result(res); pause(); return;
+            showError("Invalid ID."); mysql_free_result(res); pause(); return;
         }
 
         row = mysql_fetch_row(res);
@@ -798,10 +799,10 @@ void cancelAppointment() {
                 query = "UPDATE SLOT_TIME SET currentBookings = currentBookings - 1, isAvailable = TRUE WHERE slotTimeId = " + to_string(slotTimeId);
                 mysql_query(conn, query.c_str());
 
-                cout << "\n\033[32m[+] Appointment Cancelled Successfully.\033[0m" << endl;
+                showSuccess("Appointment Cancelled Successfully.");
             }
             else {
-                cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+                showError("Error: " + string(mysql_error(conn)));
             }
         }
 

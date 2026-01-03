@@ -1,5 +1,6 @@
 ﻿#include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // CONSOLE INITIALIZATION
@@ -43,6 +44,15 @@ void displayHeader() {
     cout << "\033[36m" << u8"╔═════════════════════════════════════╗" << "\033[0m" << endl;
     cout << "\033[36m" << u8"║" << "\033[0m" << "   " << "\033[1;97m" << "CAR SERVICE CENTER ORGANISER" << "\033[0m" << "      " << "\033[36m" << u8"║" << "\033[0m" << endl;
     cout << "\033[36m" << u8"╚═════════════════════════════════════╝" << "\033[0m" << endl;
+}
+
+// ============================================
+// STRING HELPERS
+// ============================================
+string repeatString(const string& str, int count) {
+    string result;
+    for (int i = 0; i < count; i++) result += str;
+    return result;
 }
 
 // ============================================
@@ -129,7 +139,7 @@ string getSmartDateInput(string prompt, bool allowPastDates) {
 
         // 3. Basic Validation (Length must be 10: YYYY-MM-DD)
         if (formatted.length() != 10 || formatted[4] != '-' || formatted[7] != '-') {
-            cout << "\033[31m[-] Invalid format. Try 'YYYY-MM-DD' or 'YYYY 1 1'.\033[0m" << endl;
+            showError("Invalid format. Try 'YYYY-MM-DD' or 'YYYY 1 1'.");
             continue;
         }
 
@@ -137,7 +147,7 @@ string getSmartDateInput(string prompt, bool allowPastDates) {
         if (!allowPastDates) {
             string today = getCurrentDateStr();
             if (formatted < today) {
-                cout << "\033[31m[-] Date cannot be in the past. Please enter today or a future date.\033[0m" << endl;
+                showError("Date cannot be in the past. Please enter today or a future date.");
                 continue;
             }
         }
@@ -166,7 +176,7 @@ string addDaysToDate(string dateStr, int daysToAdd) {
 // AUTO SLOT GENERATION
 // ============================================
 void autoGenerateFutureSlots(int daysToMaintain) {
-    cout << "\n\033[36m[System] Checking schedule health...\033[0m" << endl;
+    showInfo("[System] Checking schedule health...");
 
     // 1. Get Today's Date
     string today = getCurrentDateStr();
@@ -186,12 +196,12 @@ void autoGenerateFutureSlots(int daysToMaintain) {
 
     // 4. Compare: Do we need to generate?
     if (lastDbDate >= targetDate) {
-        cout << "\033[32m[System] Schedule is up-to-date (Slots available until " << lastDbDate << ").\033[0m" << endl;
+        showSuccess("[System] Schedule is up-to-date (Slots available until " + lastDbDate + ").");
         return;
     }
 
     // 5. Generation Loop
-    cout << "\033[36m[System] Extending schedule from " << lastDbDate << " to " << targetDate << "...\033[0m" << endl;
+    showInfo("[System] Extending schedule from " + lastDbDate + " to " + targetDate + "...");
 
     string nextDate = addDaysToDate(lastDbDate, 1);
     int daysGenerated = 0;
@@ -214,7 +224,7 @@ void autoGenerateFutureSlots(int daysToMaintain) {
         nextDate = addDaysToDate(nextDate, 1);
     }
 
-    cout << "\033[32m[System] SUCCESS: Generated slots for " << daysGenerated << " new days.\033[0m" << endl;
+    showSuccess("[System] SUCCESS: Generated slots for " + to_string(daysGenerated) + " new days.");
     pause();
 }
 
@@ -309,7 +319,7 @@ void displayCustomerVehicles(int customerId) {
         "WHERE customerId = " + to_string(customerId);
 
     if (mysql_query(conn, query.c_str())) {
-        cout << "\033[31m[-] Error fetching vehicles: " << mysql_error(conn) << endl;
+        showError("Error fetching vehicles: " + string(mysql_error(conn)));
         return;
     }
 
@@ -317,7 +327,7 @@ void displayCustomerVehicles(int customerId) {
     int num_rows = mysql_num_rows(result);
 
     if (num_rows == 0) {
-        cout << "\n\033[33m[i] This customer has no registered vehicles.\033[0m" << endl;
+        showInfo("This customer has no registered vehicles.");
     }
     else {
         cout << "\n\033[1;97m=== Existing Vehicles for Customer ID " << customerId << " ===\033[0m" << endl;

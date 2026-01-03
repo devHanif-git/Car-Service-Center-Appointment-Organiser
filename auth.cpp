@@ -1,6 +1,7 @@
 #include "auth.h"
 #include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // AUTHENTICATION
@@ -21,7 +22,7 @@ bool login() {
                 "' AND password = '" + hashedPassword + "'";
 
             if (mysql_query(conn, query.c_str())) {
-                cout << "\033[31m[-] DB Error: " << mysql_error(conn) << endl;
+                showError("DB Error: " + string(mysql_error(conn)));
                 return false;
             }
 
@@ -33,8 +34,8 @@ bool login() {
 
                 // Check Status specifically
                 if (status == 0) {
-                    cout << "\n\033[33m[!] ACCOUNT LOCKED: Your account has been deactivated.\033[0m" << endl;
-                    cout << "\033[33m[!] Please contact the Administrator.\033[0m" << endl;
+                    showWarning("ACCOUNT LOCKED: Your account has been deactivated.");
+                    showWarning("Please contact the Administrator.");
                     mysql_free_result(result);
                     pause();
                     clearScreen();
@@ -51,12 +52,12 @@ bool login() {
 
                 mysql_free_result(result);
 
-                cout << "\033[32m\n[+] Login Successful! Welcome, " << currentStaffName << " (" << currentUserRole << ")\033[0m" << endl;
+                showSuccess("Login Successful! Welcome, " + currentStaffName + " (" + currentUserRole + ")");
                 pause();
                 return true;
             }
             else {
-                cout << "\n\033[31m[-] Invalid Username or Password. Please try again.\033[0m" << endl;
+                showError("Invalid Username or Password. Please try again.");
                 attempts++;
                 cout << "\033[31mAttempts remaining: " << (3 - attempts) << "\033[0m\n" << endl;
             }
@@ -67,6 +68,6 @@ bool login() {
         }
     }
 
-    cout << "\033[31m[-] Too many failed attempts. System exiting.\033[0m" << endl;
+    showError("Too many failed attempts. System exiting.");
     return false;
 }

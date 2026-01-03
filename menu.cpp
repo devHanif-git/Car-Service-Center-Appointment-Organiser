@@ -1,6 +1,7 @@
 ﻿#include "menu.h"
 #include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 #include "profile.h"
 #include "appointment.h"
 #include "service_bay.h"
@@ -85,7 +86,7 @@ void mainMenu() {
                 case 7: generateReports(); break;
                 case 8:
                     if (currentUserRole == "Manager") manageStaff();
-                    else cout << "\033[31m[-] Restricted Access.\033[0m" << endl;
+                    else showError("Restricted Access.");
                     break;
                 case 0: isLoggedIn = false; return;
                 }

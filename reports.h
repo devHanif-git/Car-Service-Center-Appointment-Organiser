@@ -2,6 +2,7 @@
 #define REPORTS_H
 
 #include "globals.h"
+#include "utils.h"
 
 // ============================================
 // REPORT HELPER FUNCTIONS

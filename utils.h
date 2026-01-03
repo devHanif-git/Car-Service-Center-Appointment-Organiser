@@ -20,6 +20,11 @@ void printSubHeader(const string& title);
 void displayHeader();
 
 // ============================================
+// STRING HELPERS
+// ============================================
+string repeatString(const string& str, int count);
+
+// ============================================
 // SCREEN UTILITIES
 // ============================================
 void clearScreen();

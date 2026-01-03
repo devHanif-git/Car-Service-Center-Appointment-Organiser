@@ -1,6 +1,7 @@
 ﻿#include "staff.h"
 #include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // ADD STAFF
@@ -25,7 +26,7 @@ void addStaff() {
         mysql_free_result(res);
 
         if (count > 0) {
-            cout << "\n\033[31m[-] Error: The username '" << username << "' is already taken.\033[0m" << endl;
+            showError("The username '" + username + "' is already taken.");
             pause();
             return;
         }
@@ -41,12 +42,12 @@ void addStaff() {
             username + "', '" + hashedPassword + "', '" + name + "', '" + roles[r] + "', 1)";
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
-            cout << "\033[31m[-] Username might already exist.\033[0m" << endl;
+            showError("Error: " + string(mysql_error(conn)));
+            showError("Username might already exist.");
         }
         else {
             int newId = mysql_insert_id(conn);
-            cout << "\n\033[32m[+] Staff Added Successfully!\033[0m" << endl;
+            showSuccess("Staff Added Successfully!");
 
             // Show New Record
             query = "SELECT staffId, fullName, username, role, isActive FROM STAFF WHERE staffId=" + to_string(newId);
@@ -83,7 +84,7 @@ void viewStaff() {
         "FROM STAFF";
 
     if (mysql_query(conn, statsQuery.c_str())) {
-        cout << "\033[31m[-] Error fetching stats: " << mysql_error(conn) << endl;
+        showError("Error fetching stats: " + string(mysql_error(conn)));
         pause();
         return;
     }
@@ -101,7 +102,7 @@ void viewStaff() {
     mysql_free_result(res);
 
     if (totalStaff == 0) {
-        cout << "\033[31m[-] No staff records found.\033[0m" << endl;
+        showError("No staff records found.");
         pause();
         return;
     }
@@ -120,7 +121,7 @@ void viewStaff() {
             "ORDER BY role, fullName LIMIT " + to_string(recordsPerPage) + " OFFSET " + to_string(offset);
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             break;
         }
 
@@ -175,7 +176,7 @@ void updateStaff() {
         if (mysql_query(conn, query.c_str())) return;
         MYSQL_RES* res = mysql_store_result(conn);
 
-        if (mysql_num_rows(res) == 0) { cout << "\033[31m[-] No match found.\033[0m" << endl; mysql_free_result(res); pause(); return; }
+        if (mysql_num_rows(res) == 0) { showError("No match found."); mysql_free_result(res); pause(); return; }
 
         cout << "\n\033[1;97m=== Matches ===\033[0m" << endl;
         cout << "\033[36m" << left << setw(5) << "ID" << setw(20) << "Name" << setw(15) << "Username" << setw(15) << "Role" << "\033[0m" << endl;
@@ -189,7 +190,7 @@ void updateStaff() {
         int id = getValidInt("\nEnter Staff ID", 1, 99999);
 
         if (id == currentStaffId) {
-            cout << "\n\033[33m[!] You cannot edit your own details here. Please go to 'My Profile'.\033[0m" << endl;
+            showWarning("You cannot edit your own details here. Please go to 'My Profile'.");
             pause();
             return;
         }
@@ -212,10 +213,10 @@ void updateStaff() {
         updateQ += " WHERE staffId=" + to_string(id);
 
         if (mysql_query(conn, updateQ.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
         }
         else {
-            cout << "\n\033[32m[+] Staff Updated Successfully!\033[0m" << endl;
+            showSuccess("Staff Updated Successfully!");
         }
     }
     catch (OperationCancelledException&) {}
@@ -237,7 +238,7 @@ void deactivateStaff() {
         if (mysql_query(conn, query.c_str())) return;
         MYSQL_RES* res = mysql_store_result(conn);
 
-        if (mysql_num_rows(res) == 0) { cout << "\033[31m[-] No match.\033[0m" << endl; mysql_free_result(res); pause(); return; }
+        if (mysql_num_rows(res) == 0) { showError("No match."); mysql_free_result(res); pause(); return; }
 
         cout << "\033[36m" << left << setw(5) << "ID" << setw(20) << "Name" << setw(15) << "Username" << setw(10) << "Status" << "\033[0m" << endl;
         cout << "\033[90m" << u8"─────────────────────────────────────────────────────" << "\033[0m" << endl;
@@ -251,7 +252,7 @@ void deactivateStaff() {
         int id = getValidInt("\nEnter Staff ID to toggle status", 1, 99999);
 
         if (id == currentStaffId) {
-            cout << "\n\033[33m[!] ACTION DENIED: You cannot deactivate your own account while logged in!\033[0m" << endl;
+            showWarning("ACTION DENIED: You cannot deactivate your own account while logged in!");
             pause();
             return;
         }
@@ -270,7 +271,7 @@ void deactivateStaff() {
         if (getConfirmation("Are you sure you want to " + action + " user " + name + "?")) {
             query = "UPDATE STAFF SET isActive=" + to_string(newStatus) + " WHERE staffId=" + to_string(id);
             if (mysql_query(conn, query.c_str()) == 0) {
-                cout << "\n\033[32m[+] Status updated successfully.\033[0m" << endl;
+                showSuccess("Status updated successfully.");
             }
         }
 

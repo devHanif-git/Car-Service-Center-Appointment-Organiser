@@ -146,6 +146,7 @@
     <ClCompile Include="service_bay.cpp" />
     <ClCompile Include="service_type.cpp" />
     <ClCompile Include="staff.cpp" />
+    <ClCompile Include="ui_components.cpp" />
     <ClCompile Include="utils.cpp" />
     <ClCompile Include="vehicle.cpp" />
   </ItemGroup>
@@ -162,6 +163,7 @@
     <ClInclude Include="service_bay.h" />
     <ClInclude Include="service_type.h" />
     <ClInclude Include="staff.h" />
+    <ClInclude Include="ui_components.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="vehicle.h" />
   </ItemGroup>

@@ -8,6 +8,7 @@
 #include "database.h"
 #include "auth.h"
 #include "menu.h"
+#include "ui_components.h"
 
 // ============================================
 // MAIN FUNCTION
@@ -36,7 +37,7 @@ int main() {
             mainMenu();
 
             // C. Post-Logout Cleanup
-            cout << "\n\033[32m[+] Logged out successfully.\033[0m" << endl;
+            showSuccess("Logged out successfully.");
 
             // Reset variables for safety
             currentStaffId = 0;

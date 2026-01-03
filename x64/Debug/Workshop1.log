@@ -1,4 +1,48 @@
-﻿  utils.cpp
-C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\utils.cpp(18,17): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\utils.cpp(317,18): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+﻿  appointment.cpp
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\appointment.cpp(285,23): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\appointment.cpp(417,25): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\appointment.cpp(494,22): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\appointment.cpp(571,24): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\appointment.cpp(760,22): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+  auth.cpp
+  customer.cpp
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\customer.cpp(55,23): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\customer.cpp(79,41): warning C4101: 'e': unreferenced local variable
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\customer.cpp(108,22): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+  database.cpp
+  input_validation.cpp
+  main.cpp
+  menu.cpp
+  profile.cpp
+  reports.cpp
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\reports.cpp(15,18): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\reports.cpp(120,31): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\reports.cpp(365,28): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\reports.cpp(456,28): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\reports.cpp(626,27): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\reports.cpp(920,30): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\reports.cpp(1004,27): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\reports.cpp(1148,31): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+  service_bay.cpp
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\service_bay.cpp(42,23): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+  service_type.cpp
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\service_type.cpp(43,23): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\service_type.cpp(85,22): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\service_type.cpp(106,25): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\service_type.cpp(199,21): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\service_type.cpp(280,21): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\service_type.cpp(337,25): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  staff.cpp
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\staff.cpp(49,23): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+  utils.cpp
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\utils.cpp(19,17): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\utils.cpp(327,18): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+  vehicle.cpp
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\vehicle.cpp(28,22): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\vehicle.cpp(116,41): warning C4101: 'e': unreferenced local variable
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\vehicle.cpp(148,22): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\vehicle.cpp(335,22): warning C4244: 'initializing': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\vehicle.cpp(370,34): warning C4244: '=': conversion from 'uint64_t' to 'int', possible loss of data
+C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\Workshop1\vehicle.cpp(390,25): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  Generating Code...
   Workshop1.vcxproj -> C:\Users\devHanif\Documents\ProjectsnProgramming\Visual Studio Projects\UTeM\Workshop1\x64\Debug\Workshop1.exe

@@ -1,6 +1,7 @@
 ﻿#include "service_bay.h"
 #include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // ADD SERVICE BAY
@@ -15,7 +16,7 @@ void addServiceBay() {
         // === DUPLICATION CHECK ===
         string checkQuery = "SELECT COUNT(*) FROM SERVICE_BAY WHERE bayName = '" + name + "'";
         if (mysql_query(conn, checkQuery.c_str())) {
-            cout << "\033[31m[-] DB Check Error: " << mysql_error(conn) << endl; return;
+            showError("DB Check Error: " + string(mysql_error(conn))); return;
         }
         MYSQL_RES* res = mysql_store_result(conn);
         MYSQL_ROW row = mysql_fetch_row(res);
@@ -23,7 +24,7 @@ void addServiceBay() {
         mysql_free_result(res);
 
         if (count > 0) {
-            cout << "\n\033[31m[-] Error: A bay named '" << name << "' already exists.\033[0m" << endl;
+            showError("A bay named '" + name + "' already exists.");
             pause();
             return;
         }
@@ -35,11 +36,11 @@ void addServiceBay() {
         string query = "INSERT INTO SERVICE_BAY (bayName, bayStatus) VALUES ('" + name + "', '" + statuses[statusChoice] + "')";
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
         }
         else {
             int newId = mysql_insert_id(conn);
-            cout << "\n\033[32m[+] Service Bay Added Successfully!\033[0m" << endl;
+            showSuccess("Service Bay Added Successfully!");
 
             string q = "SELECT * FROM SERVICE_BAY WHERE serviceBayId=" + to_string(newId);
             mysql_query(conn, q.c_str());
@@ -74,7 +75,7 @@ void viewServiceBays() {
     string countQuery = "SELECT COUNT(*) FROM SERVICE_BAY";
 
     if (mysql_query(conn, countQuery.c_str())) {
-        cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+        showError("Error: " + string(mysql_error(conn)));
         pause();
         return;
     }
@@ -85,7 +86,7 @@ void viewServiceBays() {
     mysql_free_result(result);
 
     if (totalRecords == 0) {
-        cout << "\033[33mNo service bays found.\033[0m" << endl;
+        showWarning("No service bays found.");
         pause();
         return;
     }
@@ -102,7 +103,7 @@ void viewServiceBays() {
             to_string(recordsPerPage) + " OFFSET " + to_string(offset);
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+            showError("Error: " + string(mysql_error(conn)));
             pause();
             return;
         }
@@ -168,7 +169,7 @@ void updateServiceBayStatus() {
         query = "UPDATE SERVICE_BAY SET bayStatus='" + statuses[statusChoice] + "' WHERE serviceBayId=" + to_string(id);
 
         if (mysql_query(conn, query.c_str()) == 0) {
-            cout << "\n\033[32m[+] Status Updated Successfully!\033[0m" << endl;
+            showSuccess("Status Updated Successfully!");
 
             query = "SELECT * FROM SERVICE_BAY WHERE serviceBayId=" + to_string(id);
             mysql_query(conn, query.c_str());
@@ -200,7 +201,7 @@ void deleteServiceBay() {
     string query = "SELECT * FROM SERVICE_BAY ORDER BY serviceBayId";
 
     if (mysql_query(conn, query.c_str())) {
-        cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+        showError("Error: " + string(mysql_error(conn)));
         pause();
         return;
     }
@@ -208,7 +209,7 @@ void deleteServiceBay() {
     result = mysql_store_result(conn);
 
     if (mysql_num_rows(result) == 0) {
-        cout << "\033[33mNo service bays found.\033[0m" << endl;
+        showWarning("No service bays found.");
         mysql_free_result(result);
         pause();
         return;
@@ -234,7 +235,7 @@ void deleteServiceBay() {
         " AND status IN ('Scheduled', 'In Progress')";
 
     if (mysql_query(conn, query.c_str())) {
-        cout << "\n\033[31m[-] Error: " << mysql_error(conn) << endl;
+        showError("Error: " + string(mysql_error(conn)));
         pause();
         return;
     }
@@ -245,37 +246,37 @@ void deleteServiceBay() {
     mysql_free_result(result);
 
     if (activeAppointments > 0) {
-        cout << "\n\033[31m[X] WARNING: This bay has " << activeAppointments << " active appointment(s)!\033[0m" << endl;
-        cout << "\033[31m[X] Deleting will affect these appointments.\033[0m" << endl;
+        showError("WARNING: This bay has " + to_string(activeAppointments) + " active appointment(s)!");
+        showError("Deleting will affect these appointments.");
 
         if (!getConfirmation("\nDo you want to proceed with deletion?")) {
-            cout << "\n\033[33mDeletion cancelled.\033[0m" << endl;
+            showWarning("Deletion cancelled.");
             pause();
             return;
         }
     }
 
-    cout << "\n\033[31m[X] WARNING: This action cannot be undone!\033[0m" << endl;
+    showError("WARNING: This action cannot be undone!");
 
     if (getConfirmation("Are you sure you want to delete this service bay?")) {
         query = "DELETE FROM SERVICE_BAY WHERE serviceBayId = " + to_string(bayId);
 
         if (mysql_query(conn, query.c_str())) {
-            cout << "\n\033[31m[-] Error: " << mysql_error(conn) << endl;
-            cout << "\033[33mNote: Cannot delete bay if it has appointment records.\033[0m" << endl;
-            cout << "\033[33mConsider setting bay status to 'Maintenance' instead.\033[0m" << endl;
+            showError("Error: " + string(mysql_error(conn)));
+            showWarning("Note: Cannot delete bay if it has appointment records.");
+            showWarning("Consider setting bay status to 'Maintenance' instead.");
         }
         else {
             if (mysql_affected_rows(conn) > 0) {
-                cout << "\n\033[32m[+] Service Bay deleted successfully!\033[0m" << endl;
+                showSuccess("Service Bay deleted successfully!");
             }
             else {
-                cout << "\n\033[31m[-] Service Bay ID not found!\033[0m" << endl;
+                showError("Service Bay ID not found!");
             }
         }
     }
     else {
-        cout << "\nDeletion cancelled.\033[0m" << endl;
+        showWarning("Deletion cancelled.");
     }
 
     pause();
@@ -304,7 +305,7 @@ void checkBaySchedule() {
         string endDate = getSmartDateInput("Enter End Date (YYYYMMDD)  ", false);
 
         if (startDate > endDate) {
-            cout << "\n\033[33m[!] Invalid Range: Start Date cannot be after End Date.\033[0m" << endl;
+            showWarning("Invalid Range: Start Date cannot be after End Date.");
             pause();
             return;
         }
@@ -324,7 +325,7 @@ void checkBaySchedule() {
         cout << "\033[90m(Standard Hours: 08:00:00 to 18:00:00)\033[0m" << endl;
 
         if (mysql_num_rows(res) == 0) {
-            cout << "\n\033[32m[+] This Bay is COMPLETELY FREE for the selected range!\033[0m" << endl;
+            showSuccess("This Bay is COMPLETELY FREE for the selected range!");
         }
         else {
             string currentProcessingDate = "";

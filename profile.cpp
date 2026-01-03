@@ -1,6 +1,7 @@
 ﻿#include "profile.h"
 #include "utils.h"
 #include "input_validation.h"
+#include "ui_components.h"
 
 // ============================================
 // VIEW MY PROFILE
@@ -48,7 +49,7 @@ void viewMyProfile() {
                 mysql_free_result(res);
 
                 if (valid == 0) {
-                    cout << "\n\033[31m[-] Incorrect current password!\033[0m" << endl;
+                    showError("Incorrect current password!");
                     pause();
                     continue;
                 }
@@ -58,13 +59,13 @@ void viewMyProfile() {
                 string confirmPass = getPasswordInput("Confirm New Password");
 
                 if (newPass != confirmPass) {
-                    cout << "\n\033[31m[-] Passwords do not match!\033[0m" << endl;
+                    showError("Passwords do not match!");
                     pause();
                     continue;
                 }
 
                 if (newPass.length() < 4) {
-                    cout << "\n\033[31m[-] Password too short (min 4 chars).\033[0m" << endl;
+                    showError("Password too short (min 4 chars).");
                     pause();
                     continue;
                 }
@@ -73,10 +74,10 @@ void viewMyProfile() {
                 string hashedNewPass = hashPassword(newPass);
                 string updateQ = "UPDATE STAFF SET password='" + hashedNewPass + "' WHERE staffId=" + to_string(currentStaffId);
                 if (mysql_query(conn, updateQ.c_str())) {
-                    cout << "\033[31m[-] Error: " << mysql_error(conn) << endl;
+                    showError("Error: " + string(mysql_error(conn)));
                 }
                 else {
-                    cout << "\n\033[32m[+] Password changed successfully!\033[0m" << endl;
+                    showSuccess("Password changed successfully!");
                 }
                 pause();
             }
