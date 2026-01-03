@@ -30,12 +30,6 @@ void printSectionTitle(const string& title) {
     cout << "\033[36m" << u8"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" << "\033[0m\n" << endl;
 }
 
-void printTableDivider(int length) {
-    cout << "\033[90m";
-    for (int i = 0; i < length; i++) cout << u8"─";
-    cout << "\033[0m" << endl;
-}
-
 void printSubHeader(const string& title) {
     cout << "\033[36m" << u8"┌─── " << "\033[1;97m" << title << "\033[0;36m" << u8" ───┐" << "\033[0m" << endl;
 }

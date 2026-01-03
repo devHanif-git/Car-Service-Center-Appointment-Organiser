@@ -9,7 +9,6 @@
 void addServiceBay();
 void viewServiceBays();
 void updateServiceBayStatus();
-void deleteServiceBay();
 void checkBaySchedule();
 void coordinateServiceBays();
 

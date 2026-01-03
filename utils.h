@@ -15,7 +15,6 @@ void initConsole();
 // UI DISPLAY FUNCTIONS
 // ============================================
 void printSectionTitle(const string& title);
-void printTableDivider(int length);
 void printSubHeader(const string& title);
 void displayHeader();
 
