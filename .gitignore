@@ -1,0 +1,10 @@
+# Visual Studio build
+x64
+Debug
+Release
+
+# User files
+*.vcxproj*
+
+# Misc
+.claude
