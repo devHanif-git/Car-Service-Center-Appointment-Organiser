@@ -80,18 +80,21 @@ void viewAvailableSlots() {
 
             string currentHeaderDate = "";
 
+            int slotNum = 0;
             while ((row = mysql_fetch_row(result))) {
                 string rowDate = row[0];
 
                 if (rowDate != currentHeaderDate) {
                     cout << "\033[1;97m[ " << rowDate << " ]\033[0m" << endl;
-                    cout << "\033[36m" << left << setw(5) << "ID" << setw(15) << "Time" << setw(20) << "Free Bays" << "\033[0m" << endl;
-                    cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
+                    cout << "\033[36m" << left << setw(6) << "No." << setw(12) << "Time" << setw(12) << "Free Bays" << "\033[0m" << endl;
+                    cout << "\033[90m" << u8"──────────────────────────────" << "\033[0m" << endl;
                     currentHeaderDate = rowDate;
+                    slotNum = 0;
                 }
 
-                cout << left << setw(5) << row[1] << setw(15) << row[2]
-                    << setw(20) << row[3] << endl;
+                slotNum++;
+                cout << left << setw(6) << slotNum << setw(12) << row[2]
+                    << setw(12) << row[3] << endl;
             }
             mysql_free_result(result);
 
@@ -205,26 +208,24 @@ void createAppointment() {
         int slotCount = 0;
 
         cout << "\n\033[1;97m=== Available Slots for " << rawDate << " ===\033[0m" << endl;
+        cout << "\033[36m" << left << setw(6) << "No." << setw(12) << "Time" << setw(10) << "Left" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"────────────────────────────" << "\033[0m" << endl;
         while ((row = mysql_fetch_row(res))) {
-            validSlots[slotCount++] = atoi(row[0]);
-            cout << "[" << row[0] << "] " << row[1] << " (Left: " << row[2] << ")\n";
+            validSlots[slotCount] = atoi(row[0]);
+            slotCount++;
+            cout << left << setw(6) << slotCount << setw(12) << row[1] << setw(10) << row[2] << endl;
         }
         mysql_free_result(res);
 
         int slotTimeId;
         while (true) {
-            slotTimeId = getValidInt("\nEnter Slot Time ID", 1, 99999);
+            int slotChoice = getValidInt("\nEnter Slot No.", 1, slotCount);
 
-            bool isValid = false;
-            for (int i = 0; i < slotCount; i++) {
-                if (validSlots[i] == slotTimeId) {
-                    isValid = true;
-                    break;
-                }
+            if (slotChoice >= 1 && slotChoice <= slotCount) {
+                slotTimeId = validSlots[slotChoice - 1];
+                break;
             }
-
-            if (isValid) break;
-            showError("That slot ID is invalid or full. Please select from the list above.");
+            showError("Invalid selection. Please choose from 1 to " + to_string(slotCount) + ".");
         }
 
         query = "SELECT slotTime FROM SLOT_TIME WHERE slotTimeId = " + to_string(slotTimeId);

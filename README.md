@@ -41,6 +41,7 @@ A comprehensive Windows-based management system for automotive service centers, 
 
 ### Appointment Scheduling
 - View available time slots with bay availability
+- User-friendly slot selection (simple 1-19 numbering per day)
 - Multi-step appointment creation workflow
 - Track appointment status (Scheduled, In Progress, Completed, Cancelled)
 - Auto-generate 30-day appointment slots
@@ -204,8 +205,23 @@ Password: ****
 
 ### Special Input Features
 - **Date Input**: Accepts multiple formats (YYYYMMDD, YYYY-MM-DD, YYYY/MM/DD)
+- **Slot Selection**: Simple numbered list (1-19) instead of complex database IDs
 - **Cancel Operation**: Type `@` to abort any action
 - **Pagination**: Use `N` for Next, `P` for Previous when viewing lists
+
+### Slot Selection Example
+```
+=== Available Slots for 2026-01-05 ===
+No.   Time        Left
+────────────────────────────
+1     08:00:00    3
+2     08:30:00    2
+3     09:00:00    3
+...
+19    17:00:00    3
+
+Enter Slot No.: 2
+```
 
 ---
 
@@ -306,6 +322,7 @@ The application features a polished console interface with:
 - **UTF-8 Support** - Proper character encoding
 - **Breadcrumb Navigation** - Always know your current location
 - **Standardized Messaging** - Consistent success, error, warning, and info displays
+- **User-Friendly IDs** - Display indexes (1, 2, 3...) instead of database IDs for easy input
 
 ```
 ┌──────────────────────────────────────────────────────────┐
