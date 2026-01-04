@@ -265,12 +265,13 @@ void updateServiceType() {
         }
 
         cout << "\n\033[1;97m=== Matching Services ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Name" << setw(10) << "Price" << setw(35) << "Description" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(25) << "Name" << setw(10) << "Price" << setw(35) << "Description" << "\033[0m" << endl;
         cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
         MYSQL_ROW row;
+        vector<int> serviceIds;
         while ((row = mysql_fetch_row(result))) {
-            string id = row[0];
+            serviceIds.push_back(atoi(row[0]));
             string name = row[1];
             string price = row[4];
             string desc = row[3] ? row[3] : u8"─";
@@ -280,14 +281,14 @@ void updateServiceType() {
             int len = desc.length();
 
             if (len == 0) {
-                cout << left << setw(5) << id << setw(25) << name << setw(10) << price << setw(colWidth) << u8"─" << endl;
+                cout << left << setw(5) << serviceIds.size() << setw(25) << name << setw(10) << price << setw(colWidth) << u8"─" << endl;
                 continue;
             }
 
             for (int i = 0; i < len; i += textMax) {
                 string chunk = desc.substr(i, textMax);
                 if (i == 0) {
-                    cout << left << setw(5) << id << setw(25) << name << setw(10) << price << setw(colWidth) << chunk << endl;
+                    cout << left << setw(5) << serviceIds.size() << setw(25) << name << setw(10) << price << setw(colWidth) << chunk << endl;
                 }
                 else {
                     cout << left << setw(5) << " " << setw(25) << " " << setw(10) << " " << setw(colWidth) << chunk << endl;
@@ -296,7 +297,8 @@ void updateServiceType() {
         }
         mysql_free_result(result);
 
-        int id = getValidInt("\nEnter Service ID to update", 1, 99999);
+        int serviceChoice = getValidInt("\nEnter Service No.", 1, (int)serviceIds.size());
+        int id = serviceIds[serviceChoice - 1];
 
         cout << "\n1. Name\n2. Duration\n3. Price\n4. Description\n5. Update All\n";
         int choice = getValidInt("Select Field", 1, 5);
@@ -363,8 +365,7 @@ void maintainServiceTypes() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
-        cout << "\n\033[1;97m6.0 SERVICE CATALOG (PRICING)\033[0m\n" << endl;
-        cout << "\033[36m1.\033[0m Search Service Price" << endl;
+        cout << "\n\033[36m1.\033[0m Search Service Price" << endl;
         cout << "\033[36m2.\033[0m View Full Catalog" << endl;
         cout << "\033[36m3.\033[0m Add New Service" << endl;
         cout << "\033[36m4.\033[0m Update Service Details" << endl;
@@ -373,10 +374,10 @@ void maintainServiceTypes() {
         try {
             choice = getValidInt("\nEnter choice", 0, 4);
             switch (choice) {
-            case 1: searchServiceType(); break;
-            case 2: viewServiceTypes(); break;
-            case 3: addServiceType(); break;
-            case 4: updateServiceType(); break;
+            case 1: setBreadcrumb("Home > Catalog > Search"); searchServiceType(); break;
+            case 2: setBreadcrumb("Home > Catalog > View All"); viewServiceTypes(); break;
+            case 3: setBreadcrumb("Home > Catalog > Add Service"); addServiceType(); break;
+            case 4: setBreadcrumb("Home > Catalog > Update"); updateServiceType(); break;
             case 0: break;
             }
         }

@@ -13,7 +13,7 @@ void initConsole() {
 // UI DISPLAY FUNCTIONS
 // ============================================
 void printSectionTitle(const string& title) {
-    cout << "\033[36m" << u8"\n┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << "\033[0m" << endl;
+    cout << "\033[36m" << u8"┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << "\033[0m" << endl;
 
     int totalWidth = 43;
     int textLen = title.length();
@@ -47,6 +47,20 @@ string repeatString(const string& str, int count) {
     string result;
     for (int i = 0; i < count; i++) result += str;
     return result;
+}
+
+void printSectionDivider(const string& sectionTitle, int width, const string& titleColor) {
+    int titleLen = (int)sectionTitle.length();
+    int innerWidth = width - 2;
+    int availableForDashes = innerWidth - titleLen - 2;
+    int leftDashes = availableForDashes / 2;
+    int rightDashes = availableForDashes - leftDashes;
+
+    cout << "\n\033[36m" << u8"┌"
+        << repeatString(u8"─", leftDashes)
+        << " " << titleColor << sectionTitle << "\033[0;36m "
+        << repeatString(u8"─", rightDashes)
+        << u8"┐" << "\033[0m" << endl;
 }
 
 // ============================================
@@ -229,7 +243,7 @@ void autoGenerateFutureSlots(int daysToMaintain) {
     }
     showLoadingComplete();
 
-    showSuccess("[System] SUCCESS: Generated slots for " + to_string(daysGenerated) + " new days.");
+    showSuccess("[System] Generated slots for " + to_string(daysGenerated) + " new days.");
     pause();
 }
 

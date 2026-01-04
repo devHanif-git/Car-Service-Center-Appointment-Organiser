@@ -36,32 +36,22 @@ void addVehicle() {
         }
 
         cout << "\n\033[1;97m=== Matching Customers ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Name" << setw(15) << "Phone" << setw(25) << "Email" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(25) << "Name" << setw(15) << "Phone" << setw(25) << "Email" << "\033[0m" << endl;
         cout << "\033[90m" << u8"──────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
         MYSQL_ROW row;
+        vector<int> customerIds;
+        vector<string> customerNames;
         while ((row = mysql_fetch_row(result))) {
-            cout << left << setw(5) << row[0] << setw(25) << row[1] << setw(15) << row[2] << setw(25) << row[3] << endl;
+            customerIds.push_back(atoi(row[0]));
+            customerNames.push_back(row[1]);
+            cout << left << setw(5) << customerIds.size() << setw(25) << row[1] << setw(15) << row[2] << setw(25) << row[3] << endl;
         }
         mysql_free_result(result);
 
-        int customerId = getValidInt("\nEnter Customer ID from the list above", 1, 99999);
-
-        // Verify customer exists
-        query = "SELECT customerId, customerName FROM CUSTOMER WHERE customerId = " + to_string(customerId);
-        if (mysql_query(conn, query.c_str())) {
-            showError("Error: " + string(mysql_error(conn))); return;
-        }
-        result = mysql_store_result(conn);
-        if (mysql_num_rows(result) == 0) {
-            showError("Invalid Customer ID.");
-            mysql_free_result(result);
-            pause();
-            return;
-        }
-        row = mysql_fetch_row(result);
-        string custName = row[1];
-        mysql_free_result(result);
+        int customerChoice = getValidInt("\nEnter Customer No.", 1, (int)customerIds.size());
+        int customerId = customerIds[customerChoice - 1];
+        string custName = customerNames[customerChoice - 1];
 
         displayCustomerVehicles(customerId);
 
@@ -267,15 +257,18 @@ void updateVehicle() {
         if (mysql_num_rows(res) == 0) { showError("No match."); pause(); return; }
 
         cout << "\n\033[1;97m=== Matches ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(15) << "License" << setw(15) << "Brand" << setw(20) << "Owner" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(15) << "License" << setw(15) << "Brand" << setw(20) << "Owner" << "\033[0m" << endl;
         cout << "\033[90m" << u8"────────────────────────────────────────────────────────" << "\033[0m" << endl;
         MYSQL_ROW row;
+        vector<int> vehicleIds;
         while ((row = mysql_fetch_row(res))) {
-            cout << left << setw(5) << row[0] << setw(15) << row[1] << setw(15) << row[2] << setw(20) << row[4] << endl;
+            vehicleIds.push_back(atoi(row[0]));
+            cout << left << setw(5) << vehicleIds.size() << setw(15) << row[1] << setw(15) << row[2] << setw(20) << row[4] << endl;
         }
         mysql_free_result(res);
 
-        int id = getValidInt("\nEnter Vehicle ID", 1, 99999);
+        int vehicleChoice = getValidInt("\nEnter Vehicle No. (1-" + to_string(vehicleIds.size()) + ")", 1, (int)vehicleIds.size());
+        int id = vehicleIds[vehicleChoice - 1];
 
         cout << "\n1. Plate\n2. Brand\n3. Model\n4. Year\n5. Color\n6. Update All\n";
         int choice = getValidInt("Select Field", 1, 6);
@@ -342,17 +335,20 @@ void viewVehicleServiceHistory() {
         }
 
         cout << "\n\033[1;97m=== Select Vehicle ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(15) << "License" << setw(20) << "Vehicle" << setw(20) << "Owner" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(15) << "License" << setw(20) << "Vehicle" << setw(20) << "Owner" << "\033[0m" << endl;
         cout << "\033[90m" << u8"────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
         MYSQL_ROW row;
+        vector<int> historyVehicleIds;
         while ((row = mysql_fetch_row(res))) {
-            cout << left << setw(5) << row[0] << setw(15) << row[1]
+            historyVehicleIds.push_back(atoi(row[0]));
+            cout << left << setw(5) << historyVehicleIds.size() << setw(15) << row[1]
                 << setw(20) << (string(row[2]) + " " + row[3]) << setw(20) << row[4] << endl;
         }
         mysql_free_result(res);
 
-        int vehicleId = getValidInt("\nEnter Vehicle ID to view history", 1, 99999);
+        int vehicleChoice = getValidInt("\nEnter Vehicle No. (1-" + to_string(historyVehicleIds.size()) + ")", 1, (int)historyVehicleIds.size());
+        int vehicleId = historyVehicleIds[vehicleChoice - 1];
 
         // Display History
         query = "SELECT a.appointmentId, st.slotDate, st.slotTime, "
@@ -425,7 +421,6 @@ void trackVehicleRecords() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
-        cout << "\n\033[1;97m5.0 VEHICLE REGISTRY\033[0m\n" << endl;
         cout << "\033[36m1.\033[0m Search Vehicle" << endl;
         cout << "\033[36m2.\033[0m View Service History" << endl;
         cout << "\033[36m3.\033[0m Register New Vehicle" << endl;

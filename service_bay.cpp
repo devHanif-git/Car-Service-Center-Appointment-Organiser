@@ -8,6 +8,7 @@
 // ============================================
 void addServiceBay() {
     clearScreen();
+    displayBreadcrumb();
     printSectionTitle("ADD SERVICE BAY");
 
     try {
@@ -29,7 +30,7 @@ void addServiceBay() {
             return;
         }
 
-        cout << "1. Available\n2. Occupied\n3. Maintenance\n";
+        cout << "\n1. Available\n2. Occupied\n3. Maintenance\n";
         int statusChoice = getValidInt("Select Status", 1, 3);
         string statuses[] = { "", "Available", "Occupied", "Maintenance" };
 
@@ -47,9 +48,9 @@ void addServiceBay() {
             res = mysql_store_result(conn);
             row = mysql_fetch_row(res);
 
-            cout << "\n\033[1;97m=== New Bay Record ===\033[0m" << endl;
+            printSectionDivider("New Bay Record", 38);
             cout << "\033[36m" << left << setw(5) << "ID" << setw(20) << "Name" << setw(15) << "Status" << "\033[0m" << endl;
-            cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "\033[90m" << u8"─────────────────────────────────────" << "\033[0m" << endl;
             cout << left << setw(5) << row[0] << setw(20) << row[1] << setw(15) << row[2] << endl;
             mysql_free_result(res);
         }
@@ -63,6 +64,7 @@ void addServiceBay() {
 // ============================================
 void viewServiceBays() {
     clearScreen();
+    displayBreadcrumb();
     printSectionTitle("VIEW SERVICE BAYS");
 
     MYSQL_RES* result;
@@ -95,6 +97,7 @@ void viewServiceBays() {
 
     while (true) {
         clearScreen();
+        displayBreadcrumb();
         printSectionTitle("VIEW SERVICE BAYS");
 
         int offset = (currentPage - 1) * recordsPerPage;
@@ -111,7 +114,7 @@ void viewServiceBays() {
         result = mysql_store_result(conn);
 
         cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Bay Name" << setw(20) << "Status" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"────────────────────────────────────────────────────" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
 
         while ((row = mysql_fetch_row(result))) {
             cout << left << setw(5) << row[0] << setw(25) << row[1] << setw(20) << row[2] << endl;
@@ -145,6 +148,7 @@ void viewServiceBays() {
 // ============================================
 void updateServiceBayStatus() {
     clearScreen();
+    displayBreadcrumb();
     printSectionTitle("UPDATE BAY STATUS");
 
     try {
@@ -152,15 +156,24 @@ void updateServiceBayStatus() {
         if (mysql_query(conn, query.c_str())) return;
 
         MYSQL_RES* res = mysql_store_result(conn);
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(20) << "Name" << setw(15) << "Status" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(20) << "Name" << setw(15) << "Status" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"───────────────────────────────────" << "\033[0m" << endl;
         MYSQL_ROW row;
+        vector<int> bayIds;
         while ((row = mysql_fetch_row(res))) {
-            cout << left << setw(5) << row[0] << setw(20) << row[1] << setw(15) << row[2] << endl;
+            bayIds.push_back(atoi(row[0]));
+            cout << left << setw(5) << bayIds.size() << setw(20) << row[1] << setw(15) << row[2] << endl;
         }
         mysql_free_result(res);
 
-        int id = getValidInt("\nEnter Bay ID to update", 1, 999);
+        if (bayIds.empty()) {
+            showWarning("No service bays found.");
+            pause();
+            return;
+        }
+
+        int bayChoice = getValidInt("\nEnter Bay No.", 1, (int)bayIds.size());
+        int id = bayIds[bayChoice - 1];
 
         cout << "\n1. Available\n2. Occupied\n3. Maintenance\n";
         int statusChoice = getValidInt("Select New Status", 1, 3);
@@ -176,9 +189,9 @@ void updateServiceBayStatus() {
             res = mysql_store_result(conn);
             row = mysql_fetch_row(res);
 
-            cout << "\n\033[1;97m=== Updated Record ===\033[0m" << endl;
+            printSectionDivider("Updated Record", 38);
             cout << "\033[36m" << left << setw(5) << "ID" << setw(20) << "Name" << setw(15) << "Status" << "\033[0m" << endl;
-            cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "\033[90m" << u8"─────────────────────────────────────" << "\033[0m" << endl;
             cout << left << setw(5) << row[0] << setw(20) << row[1] << setw(15) << row[2] << endl;
             mysql_free_result(res);
         }
@@ -193,19 +206,31 @@ void updateServiceBayStatus() {
 // ============================================
 void checkBaySchedule() {
     clearScreen();
+    displayBreadcrumb();
     printSectionTitle("CHECK BAY SCHEDULE");
 
     try {
         mysql_query(conn, "SELECT serviceBayId, bayName FROM SERVICE_BAY");
         MYSQL_RES* res = mysql_store_result(conn);
 
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(20) << "Name" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"─────────────────────────" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(20) << "Name" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"───────────" << "\033[0m" << endl;
         MYSQL_ROW row;
-        while ((row = mysql_fetch_row(res))) cout << left << setw(5) << row[0] << setw(20) << row[1] << endl;
+        vector<int> scheduleBayIds;
+        while ((row = mysql_fetch_row(res))) {
+            scheduleBayIds.push_back(atoi(row[0]));
+            cout << left << setw(5) << scheduleBayIds.size() << setw(20) << row[1] << endl;
+        }
         mysql_free_result(res);
 
-        int bayId = getValidInt("\nEnter Bay ID to check", 1, 999);
+        if (scheduleBayIds.empty()) {
+            showWarning("No service bays found.");
+            pause();
+            return;
+        }
+
+        int scheduleChoice = getValidInt("\nEnter Bay No.", 1, (int)scheduleBayIds.size());
+        int bayId = scheduleBayIds[scheduleChoice - 1];
 
         string startDate = getSmartDateInput("Enter Start Date (YYYYMMDD)", false);
         string endDate = getSmartDateInput("Enter End Date (YYYYMMDD)  ", false);
@@ -228,7 +253,7 @@ void checkBaySchedule() {
         res = mysql_store_result(conn);
 
         cout << "\n\033[1;97m=== Schedule & Gaps for Bay " << bayId << " (" << startDate << " to " << endDate << ") ===\033[0m" << endl;
-        cout << "\033[90m(Standard Hours: 08:00:00 to 18:00:00)\033[0m" << endl;
+        cout << "\033[90m(Standard Hours: 08:00:00 to 18:00:00)\033[0m" << endl << endl;
 
         if (mysql_num_rows(res) == 0) {
             showSuccess("This Bay is COMPLETELY FREE for the selected range!");
@@ -251,7 +276,7 @@ void checkBaySchedule() {
                         cout << endl;
                     }
 
-                    cout << "\033[1;97m>>> DATE: " << rowDate << " <<<\033[0m" << endl;
+                    printSubHeader("DATE: " + rowDate);
                     currentProcessingDate = rowDate;
                     lastEnd = "08:00:00";
                 }
@@ -260,7 +285,7 @@ void checkBaySchedule() {
                     cout << "\033[32m[AVAILABLE] " << lastEnd << " --> " << appStart << "\033[0m" << endl;
                 }
 
-                cout << "\033[31m[ BUSY    ] " << appStart << " --> " << appEnd << "\033[0m" << endl;
+                cout << "\033[31m[ B U S Y ] " << appStart << " --> " << appEnd << "\033[0m" << endl;
                 lastEnd = appEnd;
             }
 
@@ -284,8 +309,7 @@ void coordinateServiceBays() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
-        cout << "\n\033[1;97m3.0 BAY & FACILITY MANAGEMENT\033[0m\n" << endl;
-        cout << "\033[36m1.\033[0m Check Bay Schedule (Find Gaps)" << endl;
+        cout << "\n\033[36m1.\033[0m Check Bay Schedule (Find Gaps)" << endl;
         cout << "\033[36m2.\033[0m View Bay Status Overview" << endl;
         cout << "\033[36m3.\033[0m Update Bay Status (Main./Occupied)" << endl;
         cout << "\033[36m4.\033[0m Add New Service Bay" << endl;
@@ -294,10 +318,10 @@ void coordinateServiceBays() {
         try {
             choice = getValidInt("\nEnter choice", 0, 4);
             switch (choice) {
-            case 1: checkBaySchedule(); break;
-            case 2: viewServiceBays(); break;
-            case 3: updateServiceBayStatus(); break;
-            case 4: addServiceBay(); break;
+            case 1: setBreadcrumb("Home > Bays > Schedule"); checkBaySchedule(); break;
+            case 2: setBreadcrumb("Home > Bays > Status Overview"); viewServiceBays(); break;
+            case 3: setBreadcrumb("Home > Bays > Update Status"); updateServiceBayStatus(); break;
+            case 4: setBreadcrumb("Home > Bays > Add Bay"); addServiceBay(); break;
             case 0: break;
             }
         }

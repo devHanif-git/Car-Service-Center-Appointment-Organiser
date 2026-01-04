@@ -1,4 +1,4 @@
-#ifndef UTILS_H
+﻿#ifndef UTILS_H
 #define UTILS_H
 
 #include "globals.h"
@@ -22,6 +22,7 @@ void displayHeader();
 // STRING HELPERS
 // ============================================
 string repeatString(const string& str, int count);
+void printSectionDivider(const string& sectionTitle, int width = 80, const string& titleColor = "\033[1;97m");
 
 // ============================================
 // SCREEN UTILITIES

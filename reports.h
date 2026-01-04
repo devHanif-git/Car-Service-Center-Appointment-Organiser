@@ -9,7 +9,6 @@
 // ============================================
 void printReportHeader(const string& reportTitle, const string& startDate, const string& endDate);
 void printReportFooter(int totalRecords);
-void printSectionDivider(const string& sectionTitle);
 
 // ============================================
 // ACCESS CONTROL

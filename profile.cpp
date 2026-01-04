@@ -9,6 +9,7 @@
 void viewMyProfile() {
     while (true) {
         clearScreen();
+        displayBreadcrumb();
         printSectionTitle("MY PROFILE - " + currentStaffName);
 
         // 1. Fetch Latest Data

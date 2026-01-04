@@ -8,6 +8,7 @@
 // ============================================
 void viewAvailableSlots() {
     clearScreen();
+    displayBreadcrumb();
     printSectionTitle("VIEW AVAILABLE SLOTS");
 
     try {
@@ -121,11 +122,12 @@ void viewAvailableSlots() {
 // ============================================
 void createAppointment() {
     clearScreen();
+    displayBreadcrumb();
     printSectionTitle("CREATE APPOINTMENT");
 
     try {
         // STEP 1: SELECT VEHICLE
-        printSubHeader("Step 1: Select Vehicle");
+        printSubHeader("Select Vehicle");
         string term = getValidString("Enter Plate, Brand, or Owner Name");
 
         string query = "SELECT v.vehicleId, v.licensePlate, v.brand, v.model, c.customerName "
@@ -140,51 +142,99 @@ void createAppointment() {
             mysql_free_result(res); pause(); return;
         }
 
-        cout << "\n\033[1;97m=== Matching Vehicles ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(15) << "License" << setw(20) << "Vehicle" << setw(20) << "Owner" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"────────────────────────────────────────────────────────────" << "\033[0m" << endl;
+        printSectionDivider("Matching Vehicles", 55);
+        cout << "\033[36m" << left << setw(5) << "No." << setw(15) << "License" << setw(20) << "Vehicle" << setw(20) << "Owner" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"───────────────────────────────────────────────────────" << "\033[0m" << endl;
         MYSQL_ROW row;
+
+        vector<int> vehicleIds;
         while ((row = mysql_fetch_row(res))) {
-            cout << left << setw(5) << row[0] << setw(15) << row[1]
+            vehicleIds.push_back(atoi(row[0]));
+            cout << left << setw(5) << vehicleIds.size() << setw(15) << row[1]
                 << setw(20) << (string(row[2]) + " " + row[3]) << setw(20) << row[4] << endl;
         }
         mysql_free_result(res);
 
-        int vehicleId = getValidInt("\nEnter Vehicle ID", 1, 99999);
+        int vehicleChoice = getValidInt("\nEnter Vehicle No.", 1, (int)vehicleIds.size());
+        int vehicleId = vehicleIds[vehicleChoice - 1];
 
         // STEP 2: SELECT SERVICES
         cout << endl;
-        printSubHeader("Step 2: Select Services");
+        printSectionDivider("Available Services", 45);
         query = "SELECT serviceTypeId, serviceName, standardDuration, basePrice FROM SERVICE_TYPE ORDER BY serviceName";
         mysql_query(conn, query.c_str());
         res = mysql_store_result(conn);
 
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Service" << setw(10) << "Mins" << setw(10) << "Price" << "\033[0m" << endl;
+        vector<int> serviceTypeIds;
+        vector<int> serviceDurations;
+        vector<string> serviceNames;
+
+        cout << "\033[36m" << left << setw(5) << "No." << setw(25) << "Service" << setw(10) << "Mins" << setw(10) << "Price" << "\033[0m" << endl;
         cout << "\033[90m" << u8"────────────────────────────────────────────────────" << "\033[0m" << endl;
         while ((row = mysql_fetch_row(res))) {
-            cout << left << setw(5) << row[0] << setw(25) << row[1] << setw(10) << row[2] << setw(10) << row[3] << endl;
+            serviceTypeIds.push_back(atoi(row[0]));
+            serviceNames.push_back(row[1]);
+            serviceDurations.push_back(atoi(row[2]));
+            cout << left << setw(5) << serviceTypeIds.size() << setw(25) << row[1] << setw(10) << row[2] << setw(10) << row[3] << endl;
         }
         mysql_free_result(res);
 
-        int numServices = getValidInt("\nHow many services?", 1, 10);
-        int serviceIds[10];
+        cout << "\033[90m" << u8"────────────────────────────────────────────────────" << "\033[0m" << endl;
+        cout << "\033[36m0.\033[0m  Done selecting\n" << endl;
+
+        vector<int> serviceIds;
+        vector<string> selectedNames;
         int totalDuration = 0;
 
-        for (int i = 0; i < numServices; i++) {
-            serviceIds[i] = getValidInt("Enter Service ID #" + to_string(i + 1), 1, 999);
+        while (true) {
+            int serviceChoice = getValidInt("Enter Service No. (or 0 when done)", 0, (int)serviceTypeIds.size());
 
-            query = "SELECT standardDuration FROM SERVICE_TYPE WHERE serviceTypeId = " + to_string(serviceIds[i]);
-            mysql_query(conn, query.c_str());
-            res = mysql_store_result(conn);
-            if (row = mysql_fetch_row(res)) {
-                totalDuration += atoi(row[0]);
+            if (serviceChoice == 0) {
+                if (serviceIds.empty()) {
+                    showWarning("Please select at least one service.");
+                    continue;
+                }
+                break;
             }
-            mysql_free_result(res);
+
+            int selectedId = serviceTypeIds[serviceChoice - 1];
+            string selectedName = serviceNames[serviceChoice - 1];
+
+            // Check for duplicate
+            bool alreadySelected = false;
+            for (int id : serviceIds) {
+                if (id == selectedId) {
+                    alreadySelected = true;
+                    break;
+                }
+            }
+
+            if (alreadySelected) {
+                showWarning("'" + selectedName + "' is already selected.");
+                continue;
+            }
+
+            serviceIds.push_back(selectedId);
+            selectedNames.push_back(selectedName);
+            totalDuration += serviceDurations[serviceChoice - 1];
+
+            showSuccess("Added: " + selectedName);
+
+            // Show selected services so far
+            cout << "\033[90mSelected: ";
+            for (size_t i = 0; i < selectedNames.size(); i++) {
+                cout << selectedNames[i];
+                if (i < selectedNames.size() - 1) {
+                    cout << ", ";
+                    if ((i + 1) % 3 == 0) cout << "\n          ";  // newline after every 3
+                }
+            }
+            cout << "\033[0m\n" << endl;
         }
 
         // STEP 3: DATE & TIME
         cout << endl;
-        printSubHeader("Step 3: Schedule");
+        printSubHeader("Schedule");
 
         string rawDate = getSmartDateInput("Enter Date (YYYYMMDD)", false);
         string date = "'" + rawDate + "'";
@@ -209,7 +259,7 @@ void createAppointment() {
 
         cout << "\n\033[1;97m=== Available Slots for " << rawDate << " ===\033[0m" << endl;
         cout << "\033[36m" << left << setw(6) << "No." << setw(12) << "Time" << setw(10) << "Left" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"────────────────────────────" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"───────────────────────" << "\033[0m" << endl;
         while ((row = mysql_fetch_row(res))) {
             validSlots[slotCount] = atoi(row[0]);
             slotCount++;
@@ -285,7 +335,7 @@ void createAppointment() {
         else {
             int appId = mysql_insert_id(conn);
 
-            for (int i = 0; i < numServices; i++) {
+            for (size_t i = 0; i < serviceIds.size(); i++) {
                 string sQuery = "INSERT INTO APPOINTMENT_SERVICE (appointmentId, serviceTypeId, serviceStatus) VALUES ("
                     + to_string(appId) + ", " + to_string(serviceIds[i]) + ", 'Pending')";
                 mysql_query(conn, sQuery.c_str());
@@ -308,10 +358,11 @@ void createAppointment() {
 // ============================================
 void viewAppointments() {
     clearScreen();
+    displayBreadcrumb();
     printSectionTitle("VIEW APPOINTMENTS");
 
     try {
-        cout << "\033[1;97mView Filter Options:\033[0m" << endl;
+        printSubHeader("Filter Options");
         cout << "\033[36m1.\033[0m Search by Keyword (Name or Plate)" << endl;
         cout << "\033[36m2.\033[0m Filter by Date" << endl;
         cout << "\033[36m3.\033[0m Filter by Status" << endl;
@@ -333,7 +384,7 @@ void viewAppointments() {
             break;
         }
         case 3: {
-            cout << "1. Scheduled\n2. In Progress\n3. Completed\n4. Cancelled\n";
+            cout << "\n1. Scheduled\n2. In Progress\n3. Completed\n4. Cancelled\n";
             int s = getValidInt("Select Status", 1, 4);
             string statuses[] = { "", "Scheduled", "In Progress", "Completed", "Cancelled" };
             whereClause = "WHERE a.status = '" + statuses[s] + "' ";
@@ -402,7 +453,7 @@ void viewAppointments() {
             cout << "\033[36m" << left << setw(5) << "ID" << setw(12) << "License" << setw(20) << "Customer"
                 << setw(8) << "Bay" << setw(12) << "Date" << setw(10) << "Start"
                 << setw(20) << "Mechanic" << setw(15) << "Status" << "\033[0m" << endl;
-            cout << "\033[90m" << u8"────────────────────────────────────────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
             while ((row = mysql_fetch_row(result))) {
                 string mechName = (row[7] ? row[7] : "-");
@@ -412,6 +463,7 @@ void viewAppointments() {
                 if (status == "In Progress") colorStatus = "\033[33mIn Progress\033[0m";
                 else if (status == "Completed") colorStatus = "\033[32mCompleted\033[0m";
                 else if (status == "Cancelled") colorStatus = "\033[31mCancelled\033[0m";
+                else if (status == "Scheduled") colorStatus = "\033[36mScheduled\033[0m";
 
                 int colWidth = 20;
                 int textMax = 18;
@@ -441,7 +493,7 @@ void viewAppointments() {
             }
             mysql_free_result(result);
 
-            cout << "\033[90m" << u8"────────────────────────────────────────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
             cout << "\033[90mPage " << currentPage << " of " << totalPages << " | Total Records: " << totalRecords << "\033[0m" << endl;
             cout << "\n\033[36m[N]ext | [P]revious | [E]xit\033[0m" << endl;
 
@@ -465,6 +517,7 @@ void viewAppointments() {
 // ============================================
 void updateAppointmentStatus() {
     clearScreen();
+    displayBreadcrumb();
     printSectionTitle("UPDATE APPOINTMENT STATUS");
 
     try {
@@ -501,33 +554,33 @@ void updateAppointmentStatus() {
             return;
         }
 
-        cout << "\n\033[1;97m=== Select Appointment ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(12) << "Date" << setw(10) << "Time"
+        cout << endl;
+        printSectionDivider("Select Appointment", 72);
+        cout << "\033[36m" << left << setw(5) << "No." << setw(12) << "Date" << setw(10) << "Time"
             << setw(20) << "Customer" << setw(12) << "Plate" << setw(15) << "Status" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
         MYSQL_ROW row;
+        vector<int> appointmentIds;
         while ((row = mysql_fetch_row(res))) {
-            cout << left << setw(5) << row[0] << setw(12) << row[1] << setw(10) << row[2]
-                << setw(20) << row[3] << setw(12) << row[4] << setw(15) << row[5] << endl;
+            appointmentIds.push_back(atoi(row[0]));
+            string status = row[5];
+            string statusColor = "\033[0m";
+            if (status == "Scheduled") statusColor = "\033[36m";       // Cyan/Blue
+            else if (status == "In Progress") statusColor = "\033[33m"; // Yellow
+            else if (status == "Completed") statusColor = "\033[32m";   // Green
+            else if (status == "Cancelled") statusColor = "\033[31m";   // Red
+
+            cout << left << setw(5) << appointmentIds.size() << setw(12) << row[1] << setw(10) << row[2]
+                << setw(20) << row[3] << setw(12) << row[4] << statusColor << status << "\033[0m" << endl;
         }
         mysql_free_result(res);
 
-        int appointmentId = getValidInt("\nEnter Appointment ID from list above", 1, 99999);
+        int appointmentChoice = getValidInt("\nEnter Appointment No.", 1, (int)appointmentIds.size());
+        int appointmentId = appointmentIds[appointmentChoice - 1];
 
-        query = "SELECT status FROM APPOINTMENT WHERE appointmentId = " + to_string(appointmentId);
-        if (mysql_query(conn, query.c_str())) return;
-        res = mysql_store_result(conn);
-
-        if (mysql_num_rows(res) == 0) {
-            showError("Invalid ID selected.");
-            mysql_free_result(res);
-            pause();
-            return;
-        }
-        mysql_free_result(res);
-
-        cout << "\n\033[1;97m=== Set New Status ===\033[0m" << endl;
+        cout << endl;
+        cout << "\033[1;97m=== Set New Status ===\033[0m" << endl;
         cout << "\033[36m1.\033[0m Scheduled" << endl;
         cout << "\033[36m2.\033[0m In Progress" << endl;
         cout << "\033[36m3.\033[0m Completed" << endl;
@@ -572,15 +625,16 @@ void manageServiceJobDetails() {
         int myJobCount = mysql_num_rows(myRes);
 
         if (myJobCount > 0) {
-            cout << "\033[36m" << u8"┌─── " << "\033[32m" << "MY ACTIVE JOBS (In Progress)" << "\033[36m" << u8" ───┐" << "\033[0m" << endl;
+            // cout << "\033[36m" << u8"┌─── " << "\033[32m" << "MY ACTIVE JOBS (In Progress)" << "\033[36m" << u8" ───┐" << "\033[0m" << endl;
+            printSectionDivider("MY ACTIVE JOBS (In Progress)", 50, "\033[1;32m");
             cout << "\033[36m" << left << setw(5) << "ID" << setw(12) << "Plate" << setw(20) << "Customer" << setw(20) << "Vehicle" << "\033[0m" << endl;
-            cout << "\033[90m" << u8"────────────────────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "\033[90m" << u8"─────────────────────────────────────────────────" << "\033[0m" << endl;
             MYSQL_ROW row;
             while ((row = mysql_fetch_row(myRes))) {
                 cout << left << setw(5) << row[0] << setw(12) << row[1] << setw(20) << row[2]
                     << setw(20) << (string(row[3]) + " " + row[4]) << endl;
             }
-            cout << "\033[90m" << u8"────────────────────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "\033[90m" << u8"─────────────────────────────────────────────────" << "\033[0m" << endl;
         }
         else {
             showInfo("You have no active jobs right now.");
@@ -588,7 +642,8 @@ void manageServiceJobDetails() {
         mysql_free_result(myRes);
 
         // PART B: JOB POOL
-        cout << "\n\033[1;97m=== AVAILABLE JOB POOL (Today) ===\033[0m" << endl;
+        cout << endl;
+        printSectionDivider("AVAILABLE JOB POOL (Today)", 60);
 
         string poolQuery = "SELECT a.appointmentId, v.licensePlate, c.customerName, st.slotTime, a.status "
             "FROM APPOINTMENT a "
@@ -602,26 +657,33 @@ void manageServiceJobDetails() {
         if (mysql_query(conn, poolQuery.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
         MYSQL_RES* poolRes = mysql_store_result(conn);
 
+        vector<int> jobIds;
+
         if (mysql_num_rows(poolRes) == 0) {
             showError("No active appointments in the shop today.");
+            mysql_free_result(poolRes);
+            pause();
+            return;
         }
         else {
-            cout << "\033[36m" << left << setw(5) << "ID" << setw(12) << "Plate" << setw(20) << "Customer"
+            cout << "\033[36m" << left << setw(5) << "No." << setw(12) << "Plate" << setw(20) << "Customer"
                 << setw(10) << "Time" << setw(15) << "Status" << "\033[0m" << endl;
-            cout << "\033[90m" << u8"──────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "\033[90m" << u8"───────────────────────────────────────────────────────────" << "\033[0m" << endl;
             MYSQL_ROW row;
             while ((row = mysql_fetch_row(poolRes))) {
-                cout << left << setw(5) << row[0] << setw(12) << row[1] << setw(20) << row[2]
+                jobIds.push_back(atoi(row[0]));
+                cout << left << setw(5) << jobIds.size() << setw(12) << row[1] << setw(20) << row[2]
                     << setw(10) << row[3] << setw(15) << row[4] << endl;
             }
         }
         mysql_free_result(poolRes);
 
         // SELECT JOB
-        showInfo("Enter Appointment ID to work on (or 0 to Exit)");
-        int appointmentId = getValidInt("Enter ID", 0, 99999);
+        showInfo("Enter Job No. to work on (or 0 to Exit)");
+        int jobChoice = getValidInt("Enter No.", 0, (int)jobIds.size());
 
-        if (appointmentId == 0) return;
+        if (jobChoice == 0) return;
+        int appointmentId = jobIds[jobChoice - 1];
 
         // TASK MANAGEMENT LOOP
         while (true) {
@@ -637,16 +699,18 @@ void manageServiceJobDetails() {
             MYSQL_RES* res = mysql_store_result(conn);
 
             printSubHeader("Service Task Checklist");
-            cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Service Task" << setw(12) << "Est."
+            cout << "\033[36m" << left << setw(5) << "No." << setw(25) << "Service Task" << setw(12) << "Est."
                 << setw(12) << "Actual" << setw(15) << "Status" << setw(20) << "Started At" << "\033[0m" << endl;
             cout << "\033[90m" << u8"────────────────────────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
             MYSQL_ROW row;
+            vector<int> taskIds;
             while ((row = mysql_fetch_row(res))) {
+                taskIds.push_back(atoi(row[0]));
                 string actual = (row[3] ? row[3] : "-");
                 string startInfo = (row[5] ? row[5] : "-");
 
-                cout << left << setw(5) << row[0] << setw(25) << row[1]
+                cout << left << setw(5) << taskIds.size() << setw(25) << row[1]
                     << setw(12) << (string(row[2]) + "m")
                     << setw(12) << (actual == "-" ? "-" : actual + "m")
                     << setw(15) << row[4]
@@ -654,10 +718,11 @@ void manageServiceJobDetails() {
             }
             mysql_free_result(res);
 
-            showInfo("Enter Task ID to update status");
-            int serviceId = getValidInt("Enter ID (or 0 to Finish/Back)", 0, 99999);
+            showInfo("Enter Task No. to update status");
+            int taskChoice = getValidInt("Enter No. (or 0 to Finish/Back)", 0, (int)taskIds.size());
 
-            if (serviceId == 0) break;
+            if (taskChoice == 0) break;
+            int serviceId = taskIds[taskChoice - 1];
 
             cout << "\n1. Pending\n2. In Progress (Start Timer)\n3. Completed (Stop Timer)\n";
             int statusChoice = getValidInt("Select New Status", 1, 3);
@@ -681,7 +746,7 @@ void manageServiceJobDetails() {
 
                 if (!startedAt.empty()) {
                     updateQ = "UPDATE APPOINTMENT_SERVICE SET serviceStatus = 'Completed', "
-                        "actualDuration = TIMESTAMPDIFF(MINUTE, startedAt, NOW()) "
+                        "actualDuration = GREATEST(TIMESTAMPDIFF(MINUTE, startedAt, NOW()), 1) "
                         "WHERE appointmentServiceId = " + to_string(serviceId);
                     showSuccess("Auto-calculating duration...");
                 }
@@ -736,6 +801,7 @@ void manageServiceJobDetails() {
 // ============================================
 void cancelAppointment() {
     clearScreen();
+    displayBreadcrumb();
     printSectionTitle("CANCEL APPOINTMENT");
 
     try {
@@ -767,28 +833,34 @@ void cancelAppointment() {
             return;
         }
 
-        cout << "\n\033[1;97m=== Active Appointments ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(12) << "Date" << setw(10) << "Time"
+        printSectionDivider("Active Appointments", 72);
+        cout << "\033[36m" << left << setw(5) << "No." << setw(12) << "Date" << setw(10) << "Time"
             << setw(20) << "Customer" << setw(12) << "Plate" << setw(15) << "Status" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
         MYSQL_ROW row;
+        vector<int> cancelIds;
         while ((row = mysql_fetch_row(res))) {
-            cout << left << setw(5) << row[0] << setw(12) << row[1] << setw(10) << row[2]
-                << setw(20) << row[3] << setw(12) << row[4] << setw(15) << row[5] << endl;
+            cancelIds.push_back(atoi(row[0]));
+            string status = row[5];
+            string statusColor = "\033[0m";
+            if (status == "Scheduled") statusColor = "\033[36m";       //Cyan/Blue
+            if (status == "In Progress") statusColor = "\033[33m";     //Yellow
+            if (status == "Completed") statusColor = "\033[32m";     //Green
+            if (status == "Cancelled") statusColor = "\033[31m";     //Red
+
+            
+            cout << left << setw(5) << cancelIds.size() << setw(12) << row[1] << setw(10) << row[2]
+                << setw(20) << row[3] << setw(12) << row[4] << statusColor << status << "\033[0m" << endl;
         }
         mysql_free_result(res);
 
-        int appointmentId = getValidInt("\nEnter Appointment ID to cancel", 1, 99999);
+        int cancelChoice = getValidInt("\nEnter Appointment No. to cancel", 1, (int)cancelIds.size());
+        int appointmentId = cancelIds[cancelChoice - 1];
 
         query = "SELECT slotTimeId FROM APPOINTMENT WHERE appointmentId = " + to_string(appointmentId);
         if (mysql_query(conn, query.c_str())) return;
         res = mysql_store_result(conn);
-
-        if (mysql_num_rows(res) == 0) {
-            showError("Invalid ID."); mysql_free_result(res); pause(); return;
-        }
-
         row = mysql_fetch_row(res);
         int slotTimeId = atoi(row[0]);
         mysql_free_result(res);
@@ -822,8 +894,7 @@ void scheduleAppointments() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
-        cout << "\n\033[1;97m2.0 SERVICE OPERATIONS\033[0m\n" << endl;
-        cout << "\033[36m1.\033[0m View Appointment Dashboard" << endl;
+        cout << "\n\033[36m1.\033[0m View Appointment Dashboard" << endl;
         cout << "\033[36m2.\033[0m Check Available Slots" << endl;
         cout << "\033[36m3.\033[0m Create New Booking" << endl;
         cout << "\033[36m4.\033[0m Update Appointment Status" << endl;
@@ -833,11 +904,11 @@ void scheduleAppointments() {
         try {
             choice = getValidInt("\nEnter choice", 0, 5);
             switch (choice) {
-            case 1: viewAppointments(); break;
-            case 2: viewAvailableSlots(); break;
-            case 3: createAppointment(); break;
-            case 4: updateAppointmentStatus(); break;
-            case 5: cancelAppointment(); break;
+            case 1: setBreadcrumb("Home > Appointments > Dashboard"); viewAppointments(); break;
+            case 2: setBreadcrumb("Home > Appointments > Available Slots"); viewAvailableSlots(); break;
+            case 3: setBreadcrumb("Home > Appointments > Create Booking"); createAppointment(); break;
+            case 4: setBreadcrumb("Home > Appointments > Update Status"); updateAppointmentStatus(); break;
+            case 5: setBreadcrumb("Home > Appointments > Cancel"); cancelAppointment(); break;
             case 0: break;
             }
         }

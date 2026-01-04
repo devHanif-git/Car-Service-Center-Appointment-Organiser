@@ -179,15 +179,18 @@ void updateStaff() {
         if (mysql_num_rows(res) == 0) { showError("No match found."); mysql_free_result(res); pause(); return; }
 
         cout << "\n\033[1;97m=== Matches ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(20) << "Name" << setw(15) << "Username" << setw(15) << "Role" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(20) << "Name" << setw(15) << "Username" << setw(15) << "Role" << "\033[0m" << endl;
         cout << "\033[90m" << u8"────────────────────────────────────────────────────────" << "\033[0m" << endl;
         MYSQL_ROW row;
+        vector<int> staffIds;
         while ((row = mysql_fetch_row(res))) {
-            cout << left << setw(5) << row[0] << setw(20) << row[1] << setw(15) << row[2] << setw(15) << row[3] << endl;
+            staffIds.push_back(atoi(row[0]));
+            cout << left << setw(5) << staffIds.size() << setw(20) << row[1] << setw(15) << row[2] << setw(15) << row[3] << endl;
         }
         mysql_free_result(res);
 
-        int id = getValidInt("\nEnter Staff ID", 1, 99999);
+        int staffChoice = getValidInt("\nEnter Staff No.", 1, (int)staffIds.size());
+        int id = staffIds[staffChoice - 1];
 
         if (id == currentStaffId) {
             showWarning("You cannot edit your own details here. Please go to 'My Profile'.");
@@ -240,16 +243,19 @@ void deactivateStaff() {
 
         if (mysql_num_rows(res) == 0) { showError("No match."); mysql_free_result(res); pause(); return; }
 
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(20) << "Name" << setw(15) << "Username" << setw(10) << "Status" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(20) << "Name" << setw(15) << "Username" << setw(10) << "Status" << "\033[0m" << endl;
         cout << "\033[90m" << u8"─────────────────────────────────────────────────────" << "\033[0m" << endl;
         MYSQL_ROW row;
+        vector<int> toggleStaffIds;
         while ((row = mysql_fetch_row(res))) {
+            toggleStaffIds.push_back(atoi(row[0]));
             string status = (atoi(row[4]) == 1) ? "ACTIVE" : "INACTIVE";
-            cout << left << setw(5) << row[0] << setw(20) << row[1] << setw(15) << row[2] << setw(10) << status << endl;
+            cout << left << setw(5) << toggleStaffIds.size() << setw(20) << row[1] << setw(15) << row[2] << setw(10) << status << endl;
         }
         mysql_free_result(res);
 
-        int id = getValidInt("\nEnter Staff ID to toggle status", 1, 99999);
+        int toggleChoice = getValidInt("\nEnter Staff No. to toggle status", 1, (int)toggleStaffIds.size());
+        int id = toggleStaffIds[toggleChoice - 1];
 
         if (id == currentStaffId) {
             showWarning("ACTION DENIED: You cannot deactivate your own account while logged in!");
@@ -289,8 +295,7 @@ void manageStaff() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
-        cout << "\n\033[1;97m7.0 STAFF MANAGEMENT (MANAGER ONLY)\033[0m\n" << endl;
-        cout << "\033[36m1.\033[0m Add New Staff" << endl;
+        cout << "\n\033[36m1.\033[0m Add New Staff" << endl;
         cout << "\033[36m2.\033[0m View Staff List" << endl;
         cout << "\033[36m3.\033[0m Update Staff Details" << endl;
         cout << "\033[36m4.\033[0m Manage Staff Status" << endl;

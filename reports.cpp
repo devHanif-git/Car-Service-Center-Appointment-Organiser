@@ -49,21 +49,6 @@ void printReportFooter(int totalRecords) {
     cout << "\033[90m[End of Report | Total Records: " << totalRecords << "]\033[0m" << endl;
 }
 
-void printSectionDivider(const string& sectionTitle) {
-    int totalWidth = 80;
-    int titleLen = (int)sectionTitle.length();
-    int innerWidth = totalWidth - 2; // -2 for corners ┌ ┐
-    int availableForDashes = innerWidth - titleLen - 2; // -2 for spaces around title
-    int leftDashes = availableForDashes / 2;
-    int rightDashes = availableForDashes - leftDashes;
-
-    cout << "\n\033[36m" << u8"┌"
-         << repeatString(u8"─", leftDashes)
-         << " \033[1;97m" << sectionTitle << "\033[0;36m "
-         << repeatString(u8"─", rightDashes)
-         << u8"┐" << "\033[0m" << endl;
-}
-
 // ============================================
 // ACCESS CONTROL CHECK
 // ============================================
@@ -440,15 +425,16 @@ void viewMechanicPerformance() {
         string mechQuery = "SELECT s.staffId, s.fullName, "
             "COUNT(aps.appointmentServiceId) as jobs, "
             "SUM(sv.standardDuration) as expected_time, "
-            "SUM(IFNULL(aps.actualDuration, sv.standardDuration)) as actual_time, "
+            "SUM(IFNULL(NULLIF(aps.actualDuration, 0), sv.standardDuration)) as actual_time,"
             "SUM(sv.basePrice) as revenue "
             "FROM STAFF s "
             "LEFT JOIN APPOINTMENT_SERVICE aps ON s.staffId = aps.staffId "
             "AND aps.serviceStatus = 'Completed' "
+            "AND aps.appointmentId IN ("
+            "SELECT a.appointmentId FROM APPOINTMENT a "
+            "JOIN SLOT_TIME st ON a.slotTimeId = st.slotTimeId "
+            "WHERE st.slotDate BETWEEN '" + startDate + "' AND '" + endDate + "') "
             "LEFT JOIN SERVICE_TYPE sv ON aps.serviceTypeId = sv.serviceTypeId "
-            "LEFT JOIN APPOINTMENT a ON aps.appointmentId = a.appointmentId "
-            "LEFT JOIN SLOT_TIME st ON a.slotTimeId = st.slotTimeId "
-            "AND st.slotDate BETWEEN '" + startDate + "' AND '" + endDate + "' "
             "WHERE s.role = 'Mechanic' AND s.isActive = 1 "
             "GROUP BY s.staffId "
             "ORDER BY revenue DESC";
@@ -528,7 +514,7 @@ void viewMechanicPerformance() {
             printSectionDivider("JOB DETAILS: " + mech.second);
 
             string jobQuery = "SELECT st.slotDate, sv.serviceName, sv.standardDuration, "
-                "IFNULL(aps.actualDuration, sv.standardDuration) as actual, "
+                "IFNULL(NULLIF(aps.actualDuration, 0), sv.standardDuration) as actual,"
                 "sv.basePrice, v.licensePlate, c.customerName "
                 "FROM APPOINTMENT_SERVICE aps "
                 "JOIN SERVICE_TYPE sv ON aps.serviceTypeId = sv.serviceTypeId "
@@ -1069,18 +1055,21 @@ void viewCustomerAnalytics() {
             }
 
             cout << "\n\033[1;97m=== Matching Customers ===\033[0m" << endl;
-            cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Name"
+            cout << "\033[36m" << left << setw(5) << "No." << setw(25) << "Name"
                 << setw(15) << "Phone" << setw(10) << "Vehicles" << "\033[0m" << endl;
             cout << "\033[90m" << repeatString(u8"─", 55) << "\033[0m" << endl;
 
+            vector<int> reportCustIds;
             while ((row = mysql_fetch_row(result))) {
-                cout << left << setw(5) << row[0] << setw(25) << row[1]
+                reportCustIds.push_back(atoi(row[0]));
+                cout << left << setw(5) << reportCustIds.size() << setw(25) << row[1]
                     << setw(15) << row[2] << setw(10) << row[3] << endl;
             }
             mysql_free_result(result);
 
             // Step 2: Select customer
-            int custId = getValidInt("\nEnter Customer ID from list", 1, 99999);
+            int custChoice = getValidInt("\nEnter Customer No.", 1, (int)reportCustIds.size());
+            int custId = reportCustIds[custChoice - 1];
 
             // Get customer info
             string custQuery = "SELECT customerName, phoneNumber, email, registrationDate "
@@ -1220,9 +1209,7 @@ void generateReports() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
-        cout << "\n\033[1;97m7.0 ANALYTICS & REPORTS\033[0m \033[33m[MANAGER ONLY]\033[0m\n" << endl;
-
-        cout << "\033[36m1.\033[0m Appointment Schedule Report (Detailed)" << endl;
+        cout << "\n\033[36m1.\033[0m Appointment Schedule Report (Detailed)" << endl;
         cout << "\033[36m2.\033[0m Financial Report (Sales & Revenue)" << endl;
         cout << "\033[36m3.\033[0m Service Trends & Popularity" << endl;
         cout << "\033[36m4.\033[0m Mechanic Performance Report" << endl;

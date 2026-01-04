@@ -227,15 +227,18 @@ void updateCustomer() {
         if (mysql_num_rows(res) == 0) { showError("No match found."); pause(); return; }
 
         cout << "\n\033[1;97m=== Matches ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Name" << setw(15) << "Phone" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(25) << "Name" << setw(15) << "Phone" << "\033[0m" << endl;
         cout << "\033[90m" << u8"──────────────────────────────────────────────" << "\033[0m" << endl;
         MYSQL_ROW row;
+        vector<int> customerIds;
         while ((row = mysql_fetch_row(res))) {
-            cout << left << setw(5) << row[0] << setw(25) << row[1] << setw(15) << row[2] << endl;
+            customerIds.push_back(atoi(row[0]));
+            cout << left << setw(5) << customerIds.size() << setw(25) << row[1] << setw(15) << row[2] << endl;
         }
         mysql_free_result(res);
 
-        int id = getValidInt("\nEnter Customer ID", 1, 99999);
+        int customerChoice = getValidInt("\nEnter Customer No.", 1, (int)customerIds.size());
+        int id = customerIds[customerChoice - 1];
 
         cout << "\n1. Name\n2. Phone\n3. Email\n4. Address\n5. Update All\n";
         int choice = getValidInt("Select Field", 1, 5);
@@ -281,8 +284,7 @@ void manageCustomerRecords() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
-        cout << "\n\033[1;97m4.0 CUSTOMER DATABASE\033[0m\n" << endl;
-        cout << "\033[36m1.\033[0m Search Customer Directory" << endl;
+        cout << "\n\033[36m1.\033[0m Search Customer Directory" << endl;
         cout << "\033[36m2.\033[0m Register New Customer" << endl;
         cout << "\033[36m3.\033[0m Update Customer Details" << endl;
         cout << "\033[36m4.\033[0m View Full Customer Registry" << endl;
@@ -291,10 +293,10 @@ void manageCustomerRecords() {
         try {
             choice = getValidInt("\nEnter choice", 0, 4);
             switch (choice) {
-            case 1: searchCustomer(); break;
-            case 2: addCustomer(); break;
-            case 3: updateCustomer(); break;
-            case 4: viewCustomers(); break;
+            case 1: setBreadcrumb("Home > Customers > Search"); searchCustomer(); break;
+            case 2: setBreadcrumb("Home > Customers > Register"); addCustomer(); break;
+            case 3: setBreadcrumb("Home > Customers > Update"); updateCustomer(); break;
+            case 4: setBreadcrumb("Home > Customers > View All"); viewCustomers(); break;
             case 0: break;
             }
         }
