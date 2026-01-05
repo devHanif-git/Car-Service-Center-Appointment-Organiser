@@ -4,6 +4,30 @@
 #include "ui_components.h"
 
 // ============================================
+// SYNC BAY CAPACITY TO SLOT_TIME
+// ============================================
+void syncBayCapacity() {
+    // Count total non-maintenance bays
+    string countQuery = "SELECT COUNT(*) FROM SERVICE_BAY WHERE bayStatus != 'Maintenance'";
+    if (mysql_query(conn, countQuery.c_str())) return;
+
+    MYSQL_RES* res = mysql_store_result(conn);
+    MYSQL_ROW row = mysql_fetch_row(res);
+    int availableBays = atoi(row[0]);
+    mysql_free_result(res);
+
+    // Update maxCapacity for all future slots
+    string updateQuery = "UPDATE SLOT_TIME SET maxCapacity = " + to_string(availableBays) +
+        " WHERE slotDate > CURDATE() OR (slotDate = CURDATE() AND slotTime > CURTIME())";
+    mysql_query(conn, updateQuery.c_str());
+
+    int affected = mysql_affected_rows(conn);
+    if (affected > 0) {
+        showInfo("Slot capacity synced: " + to_string(availableBays) + " bays available (" + to_string(affected) + " slots updated)");
+    }
+}
+
+// ============================================
 // ADD SERVICE BAY
 // ============================================
 void addServiceBay() {
@@ -53,6 +77,9 @@ void addServiceBay() {
             cout << "\033[90m" << u8"─────────────────────────────────────" << "\033[0m" << endl;
             cout << left << setw(5) << row[0] << setw(20) << row[1] << setw(15) << row[2] << endl;
             mysql_free_result(res);
+
+            // Sync slot capacity with new bay count
+            syncBayCapacity();
         }
     }
     catch (OperationCancelledException&) {}
@@ -194,6 +221,9 @@ void updateServiceBayStatus() {
             cout << "\033[90m" << u8"─────────────────────────────────────" << "\033[0m" << endl;
             cout << left << setw(5) << row[0] << setw(20) << row[1] << setw(15) << row[2] << endl;
             mysql_free_result(res);
+
+            // Sync slot capacity when maintenance status changes
+            syncBayCapacity();
         }
 
     }
@@ -210,21 +240,22 @@ void checkBaySchedule() {
     printSectionTitle("CHECK BAY SCHEDULE");
 
     try {
-        mysql_query(conn, "SELECT serviceBayId, bayName FROM SERVICE_BAY");
+        // Only show operational bays (exclude Maintenance)
+        mysql_query(conn, "SELECT serviceBayId, bayName, bayStatus FROM SERVICE_BAY WHERE bayStatus != 'Maintenance'");
         MYSQL_RES* res = mysql_store_result(conn);
 
-        cout << "\033[36m" << left << setw(5) << "No." << setw(20) << "Name" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"───────────" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(20) << "Name" << setw(15) << "Status" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"─────────────────────────────────────" << "\033[0m" << endl;
         MYSQL_ROW row;
         vector<int> scheduleBayIds;
         while ((row = mysql_fetch_row(res))) {
             scheduleBayIds.push_back(atoi(row[0]));
-            cout << left << setw(5) << scheduleBayIds.size() << setw(20) << row[1] << endl;
+            cout << left << setw(5) << scheduleBayIds.size() << setw(20) << row[1] << setw(15) << row[2] << endl;
         }
         mysql_free_result(res);
 
         if (scheduleBayIds.empty()) {
-            showWarning("No service bays found.");
+            showWarning("No operational bays found. All bays may be under maintenance.");
             pause();
             return;
         }
@@ -301,6 +332,106 @@ void checkBaySchedule() {
 }
 
 // ============================================
+// VIEW CURRENT BAY ACTIVITY (REAL-TIME)
+// ============================================
+void viewCurrentBayActivity() {
+    clearScreen();
+    displayBreadcrumb();
+    printSectionTitle("REAL-TIME BAY ACTIVITY");
+
+    string query = "SELECT sb.serviceBayId, sb.bayName, sb.bayStatus, "
+        "v.licensePlate, c.customerName, "
+        "GROUP_CONCAT(DISTINCT svc.serviceName SEPARATOR ', ') as services, "
+        "st.slotTime, a.endTime "
+        "FROM SERVICE_BAY sb "
+        "LEFT JOIN APPOINTMENT a ON sb.serviceBayId = a.serviceBayId "
+        "    AND a.status IN ('Scheduled', 'In Progress') "
+        "    AND a.slotTimeId IN (SELECT slotTimeId FROM SLOT_TIME WHERE slotDate = CURDATE()) "
+        "LEFT JOIN VEHICLE v ON a.vehicleId = v.vehicleId "
+        "LEFT JOIN CUSTOMER c ON v.customerId = c.customerId "
+        "LEFT JOIN SLOT_TIME st ON a.slotTimeId = st.slotTimeId "
+        "LEFT JOIN APPOINTMENT_SERVICE aps ON a.appointmentId = aps.appointmentId "
+        "LEFT JOIN SERVICE_TYPE svc ON aps.serviceTypeId = svc.serviceTypeId "
+        "GROUP BY sb.serviceBayId, sb.bayName, sb.bayStatus, v.licensePlate, c.customerName, st.slotTime, a.endTime "
+        "ORDER BY sb.serviceBayId";
+
+    if (mysql_query(conn, query.c_str())) {
+        showError("Error: " + string(mysql_error(conn)));
+        pause();
+        return;
+    }
+
+    MYSQL_RES* res = mysql_store_result(conn);
+    MYSQL_ROW row;
+
+    int availableCount = 0, occupiedCount = 0, maintenanceCount = 0;
+
+    cout << "\033[1;97m" << u8"┌────────────────────────────────────────────────────────────────────────────────┐" << "\033[0m" << endl;
+    cout << "\033[1;97m" << u8"│                         TODAY'S BAY STATUS                                     │" << "\033[0m" << endl;
+    cout << "\033[1;97m" << u8"└────────────────────────────────────────────────────────────────────────────────┘" << "\033[0m" << endl;
+
+    while ((row = mysql_fetch_row(res))) {
+        string bayName = row[1];
+        string status = row[2];
+        string plate = (row[3] ? row[3] : "");
+        string customer = (row[4] ? row[4] : "");
+        string services = (row[5] ? row[5] : "");
+        string startTime = (row[6] ? row[6] : "");
+        string endTime = (row[7] ? row[7] : "");
+
+        // Count stats
+        if (status == "Available") availableCount++;
+        else if (status == "Occupied") occupiedCount++;
+        else if (status == "Maintenance") maintenanceCount++;
+
+        // Status color and icon
+        string statusIcon, statusColor;
+        if (status == "Available") {
+            statusIcon = u8"[AVAILABLE]";
+            statusColor = "\033[32m";  // Green
+        }
+        else if (status == "Occupied") {
+            statusIcon = u8"[OCCUPIED] ";
+            statusColor = "\033[33m";  // Yellow
+        }
+        else {
+            statusIcon = u8"[MAINT.]   ";
+            statusColor = "\033[31m";  // Red
+        }
+
+        cout << "\n" << statusColor << statusIcon << "\033[0m \033[1;97m" << bayName << "\033[0m" << endl;
+
+        if (!plate.empty()) {
+            cout << "           " << u8"├─ Vehicle: \033[36m" << plate << "\033[0m (" << customer << ")" << endl;
+            if (!services.empty()) {
+                // Truncate long service list
+                if (services.length() > 45) services = services.substr(0, 42) + "...";
+                cout << "           " << u8"├─ Services: " << services << endl;
+            }
+            if (!startTime.empty()) {
+                cout << "           " << u8"└─ Time: " << startTime << " - " << endTime << endl;
+            }
+        }
+        else if (status == "Maintenance") {
+            cout << "           " << u8"└─ Bay under maintenance" << endl;
+        }
+        else {
+            cout << "           " << u8"└─ Ready for next vehicle" << endl;
+        }
+    }
+    mysql_free_result(res);
+
+    // Summary
+    cout << "\n\033[90m" << u8"────────────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
+    cout << "\033[1;97mSummary:\033[0m ";
+    cout << "\033[32m" << availableCount << " Available\033[0m | ";
+    cout << "\033[33m" << occupiedCount << " Occupied\033[0m | ";
+    cout << "\033[31m" << maintenanceCount << " Maintenance\033[0m" << endl;
+
+    pause();
+}
+
+// ============================================
 // COORDINATE SERVICE BAYS MENU
 // ============================================
 void coordinateServiceBays() {
@@ -309,19 +440,21 @@ void coordinateServiceBays() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
-        cout << "\n\033[36m1.\033[0m Check Bay Schedule (Find Gaps)" << endl;
-        cout << "\033[36m2.\033[0m View Bay Status Overview" << endl;
-        cout << "\033[36m3.\033[0m Update Bay Status (Main./Occupied)" << endl;
-        cout << "\033[36m4.\033[0m Add New Service Bay" << endl;
+        cout << "\n\033[36m1.\033[0m Real-Time Bay Activity (Live)" << endl;
+        cout << "\033[36m2.\033[0m Check Bay Schedule (Find Gaps)" << endl;
+        cout << "\033[36m3.\033[0m View Bay Status Overview" << endl;
+        cout << "\033[36m4.\033[0m Update Bay Status (Main./Occupied)" << endl;
+        cout << "\033[36m5.\033[0m Add New Service Bay" << endl;
         cout << "\n\033[36m0.\033[0m Back to Main Menu" << endl;
 
         try {
-            choice = getValidInt("\nEnter choice", 0, 4);
+            choice = getValidInt("\nEnter choice", 0, 5);
             switch (choice) {
-            case 1: setBreadcrumb("Home > Bays > Schedule"); checkBaySchedule(); break;
-            case 2: setBreadcrumb("Home > Bays > Status Overview"); viewServiceBays(); break;
-            case 3: setBreadcrumb("Home > Bays > Update Status"); updateServiceBayStatus(); break;
-            case 4: setBreadcrumb("Home > Bays > Add Bay"); addServiceBay(); break;
+            case 1: setBreadcrumb("Home > Bays > Live Activity"); viewCurrentBayActivity(); break;
+            case 2: setBreadcrumb("Home > Bays > Schedule"); checkBaySchedule(); break;
+            case 3: setBreadcrumb("Home > Bays > Status Overview"); viewServiceBays(); break;
+            case 4: setBreadcrumb("Home > Bays > Update Status"); updateServiceBayStatus(); break;
+            case 5: setBreadcrumb("Home > Bays > Add Bay"); addServiceBay(); break;
             case 0: break;
             }
         }

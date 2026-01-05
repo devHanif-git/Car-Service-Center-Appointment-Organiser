@@ -239,12 +239,46 @@ void createAppointment() {
         string rawDate = getSmartDateInput("Enter Date (YYYYMMDD)", false);
         string date = "'" + rawDate + "'";
 
-        query = "SELECT slotTimeId, slotTime, (maxCapacity - currentBookings) as avail FROM SLOT_TIME "
-            "WHERE slotDate = " + date + " "
-            "AND isAvailable = 1 "
-            "AND (maxCapacity - currentBookings) > 0 "
-            "AND (slotDate != CURDATE() OR slotTime > CURTIME()) "
-            "ORDER BY slotTime";
+        // Check if vehicle already has an active appointment on this date
+        string dupCheck = "SELECT a.appointmentId, st.slotTime, a.status, sb.bayName "
+            "FROM APPOINTMENT a "
+            "JOIN SLOT_TIME st ON a.slotTimeId = st.slotTimeId "
+            "JOIN SERVICE_BAY sb ON a.serviceBayId = sb.serviceBayId "
+            "WHERE a.vehicleId = " + to_string(vehicleId) + " "
+            "AND st.slotDate = " + date + " "
+            "AND a.status IN ('Scheduled', 'In Progress')";
+
+        if (mysql_query(conn, dupCheck.c_str()) == 0) {
+            MYSQL_RES* dupRes = mysql_store_result(conn);
+            if (mysql_num_rows(dupRes) > 0) {
+                MYSQL_ROW dupRow = mysql_fetch_row(dupRes);
+                showError("This vehicle already has an active appointment on " + rawDate + "!");
+                showWarning("Existing: Appointment #" + string(dupRow[0]) + " at " + dupRow[1] + " (" + dupRow[3] + ") - Status: " + dupRow[2]);
+                showInfo("Please complete or cancel the existing appointment first.");
+                mysql_free_result(dupRes);
+                pause();
+                return;
+            }
+            mysql_free_result(dupRes);
+        }
+
+        // Dynamic availability: Count non-maintenance bays minus overlapping appointments
+        query = "SELECT st.slotTimeId, st.slotTime, "
+            "( "
+            "   (SELECT COUNT(*) FROM SERVICE_BAY WHERE bayStatus != 'Maintenance') - "
+            "   (SELECT COUNT(*) FROM APPOINTMENT a "
+            "    JOIN SLOT_TIME st_start ON a.slotTimeId = st_start.slotTimeId "
+            "    WHERE st_start.slotDate = " + date + " "
+            "    AND a.status IN ('Scheduled', 'In Progress') "
+            "    AND st_start.slotTime <= st.slotTime "
+            "    AND a.endTime > st.slotTime "
+            "   ) "
+            ") AS avail "
+            "FROM SLOT_TIME st "
+            "WHERE st.slotDate = " + date + " "
+            "AND (st.slotDate != CURDATE() OR st.slotTime > CURTIME()) "
+            "HAVING avail > 0 "
+            "ORDER BY st.slotTime";
 
         if (mysql_query(conn, query.c_str())) { showError("Invalid Date."); return; }
         res = mysql_store_result(conn);
@@ -343,8 +377,16 @@ void createAppointment() {
 
             mysql_query(conn, ("UPDATE SLOT_TIME SET currentBookings = currentBookings + 1 WHERE slotTimeId = " + to_string(slotTimeId)).c_str());
 
+            // Get bay name for display
+            string bayNameQuery = "SELECT bayName FROM SERVICE_BAY WHERE serviceBayId = " + to_string(bayId);
+            mysql_query(conn, bayNameQuery.c_str());
+            MYSQL_RES* bayRes = mysql_store_result(conn);
+            MYSQL_ROW bayRow = mysql_fetch_row(bayRes);
+            string bayName = bayRow[0];
+            mysql_free_result(bayRes);
+
             showSuccess("Appointment Created Successfully! (ID: " + to_string(appId) + ")");
-            showSuccess("Assigned to Bay ID: " + to_string(bayId));
+            showSuccess("Assigned to: " + bayName);
             showSuccess("Estimated End Time: " + endTime);
         }
 
@@ -589,13 +631,38 @@ void updateAppointmentStatus() {
         int statusChoice = getValidInt("Enter choice", 1, 4);
         string status[] = { "", "Scheduled", "In Progress", "Completed", "Cancelled" };
 
+        // Get the serviceBayId for this appointment
+        query = "SELECT serviceBayId FROM APPOINTMENT WHERE appointmentId = " + to_string(appointmentId);
+        if (mysql_query(conn, query.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
+        MYSQL_RES* bayRes = mysql_store_result(conn);
+        MYSQL_ROW bayRow = mysql_fetch_row(bayRes);
+        int serviceBayId = atoi(bayRow[0]);
+        mysql_free_result(bayRes);
+
         query = "UPDATE APPOINTMENT SET status = '" + status[statusChoice] + "' WHERE appointmentId = " + to_string(appointmentId);
 
         if (mysql_query(conn, query.c_str())) {
             showError("Error: " + string(mysql_error(conn)));
         }
         else {
+            // Auto-update bay status based on appointment status
+            string bayStatus = "";
+            if (status[statusChoice] == "In Progress") {
+                bayStatus = "Occupied";
+            }
+            else if (status[statusChoice] == "Completed" || status[statusChoice] == "Cancelled") {
+                bayStatus = "Available";
+            }
+
+            if (!bayStatus.empty()) {
+                string bayQuery = "UPDATE SERVICE_BAY SET bayStatus = '" + bayStatus + "' WHERE serviceBayId = " + to_string(serviceBayId);
+                mysql_query(conn, bayQuery.c_str());
+            }
+
             showSuccess("Status Updated Successfully to: " + status[statusChoice]);
+            if (!bayStatus.empty()) {
+                showInfo("Bay status auto-updated to: " + bayStatus);
+            }
         }
 
     }
@@ -611,79 +678,136 @@ void manageServiceJobDetails() {
     printSectionTitle(currentStaffName + "'S TASK MANAGER");
 
     try {
-        // PART A: MY ACTIVE JOBS
-        string myJobQuery = "SELECT DISTINCT a.appointmentId, v.licensePlate, c.customerName, v.brand, v.model "
-            "FROM APPOINTMENT_SERVICE aps "
-            "JOIN APPOINTMENT a ON aps.appointmentId = a.appointmentId "
+        vector<int> allJobIds;
+        vector<int> allBayIds;
+        vector<string> allSlotTimes;
+        MYSQL_ROW row;
+
+        // PART A: MY ASSIGNED JOBS (Appointments assigned to me)
+        string myJobQuery = "SELECT a.appointmentId, v.licensePlate, c.customerName, sb.bayName, "
+            "TIME_FORMAT(st.slotTime, '%H:%i') as startTime, a.status, a.serviceBayId, st.slotTime "
+            "FROM APPOINTMENT a "
             "JOIN VEHICLE v ON a.vehicleId = v.vehicleId "
             "JOIN CUSTOMER c ON v.customerId = c.customerId "
-            "WHERE aps.staffId = " + to_string(currentStaffId) + " "
-            "AND aps.serviceStatus = 'In Progress'";
+            "JOIN SERVICE_BAY sb ON a.serviceBayId = sb.serviceBayId "
+            "JOIN SLOT_TIME st ON a.slotTimeId = st.slotTimeId "
+            "WHERE a.assignedStaffId = " + to_string(currentStaffId) + " "
+            "AND a.status IN ('Scheduled', 'In Progress') "
+            "AND st.slotDate = CURDATE() "
+            "ORDER BY st.slotTime ASC";
 
         if (mysql_query(conn, myJobQuery.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
         MYSQL_RES* myRes = mysql_store_result(conn);
         int myJobCount = mysql_num_rows(myRes);
 
         if (myJobCount > 0) {
-            // cout << "\033[36m" << u8"┌─── " << "\033[32m" << "MY ACTIVE JOBS (In Progress)" << "\033[36m" << u8" ───┐" << "\033[0m" << endl;
-            printSectionDivider("MY ACTIVE JOBS (In Progress)", 50, "\033[1;32m");
-            cout << "\033[36m" << left << setw(5) << "ID" << setw(12) << "Plate" << setw(20) << "Customer" << setw(20) << "Vehicle" << "\033[0m" << endl;
-            cout << "\033[90m" << u8"─────────────────────────────────────────────────" << "\033[0m" << endl;
-            MYSQL_ROW row;
+            printSectionDivider("MY ASSIGNED JOBS (Today)", 75, "\033[1;32m");
+            cout << "\033[36m" << left << setw(5) << "No." << setw(12) << "Plate" << setw(16) << "Customer"
+                << setw(10) << "Bay" << setw(10) << "Time" << setw(15) << "Status" << "\033[0m" << endl;
+            cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
             while ((row = mysql_fetch_row(myRes))) {
-                cout << left << setw(5) << row[0] << setw(12) << row[1] << setw(20) << row[2]
-                    << setw(20) << (string(row[3]) + " " + row[4]) << endl;
+                allJobIds.push_back(atoi(row[0]));
+                allBayIds.push_back(atoi(row[6]));
+                allSlotTimes.push_back(row[7]);
+                cout << "\033[32m" << left << setw(5) << allJobIds.size() << setw(12) << row[1] << setw(16) << row[2]
+                    << setw(10) << row[3] << setw(10) << row[4] << setw(15) << row[5] << "\033[0m" << endl;
             }
-            cout << "\033[90m" << u8"─────────────────────────────────────────────────" << "\033[0m" << endl;
         }
         else {
-            showInfo("You have no active jobs right now.");
+            showInfo("You have no assigned jobs right now.");
         }
         mysql_free_result(myRes);
 
-        // PART B: JOB POOL
+        // PART B: JOB POOL (Only unassigned jobs)
         cout << endl;
-        printSectionDivider("AVAILABLE JOB POOL (Today)", 60);
+        printSectionDivider("AVAILABLE JOB POOL (Today)", 75);
 
-        string poolQuery = "SELECT a.appointmentId, v.licensePlate, c.customerName, st.slotTime, a.status "
+        string poolQuery = "SELECT a.appointmentId, v.licensePlate, c.customerName, sb.bayName, "
+            "TIME_FORMAT(st.slotTime, '%H:%i') as startTime, a.status, a.serviceBayId, st.slotTime "
             "FROM APPOINTMENT a "
             "JOIN VEHICLE v ON a.vehicleId = v.vehicleId "
             "JOIN CUSTOMER c ON v.customerId = c.customerId "
+            "JOIN SERVICE_BAY sb ON a.serviceBayId = sb.serviceBayId "
             "JOIN SLOT_TIME st ON a.slotTimeId = st.slotTimeId "
             "WHERE st.slotDate = CURDATE() "
             "AND a.status IN ('Scheduled', 'In Progress') "
+            "AND a.assignedStaffId IS NULL "
             "ORDER BY st.slotTime ASC";
 
         if (mysql_query(conn, poolQuery.c_str())) { showError("Error: " + string(mysql_error(conn))); return; }
         MYSQL_RES* poolRes = mysql_store_result(conn);
+        int poolCount = mysql_num_rows(poolRes);
 
-        vector<int> jobIds;
-
-        if (mysql_num_rows(poolRes) == 0) {
-            showError("No active appointments in the shop today.");
-            mysql_free_result(poolRes);
-            pause();
-            return;
+        if (poolCount == 0) {
+            showInfo("No unassigned jobs in pool.");
         }
         else {
-            cout << "\033[36m" << left << setw(5) << "No." << setw(12) << "Plate" << setw(20) << "Customer"
-                << setw(10) << "Time" << setw(15) << "Status" << "\033[0m" << endl;
-            cout << "\033[90m" << u8"───────────────────────────────────────────────────────────" << "\033[0m" << endl;
-            MYSQL_ROW row;
+            cout << "\033[36m" << left << setw(5) << "No." << setw(12) << "Plate" << setw(16) << "Customer"
+                << setw(10) << "Bay" << setw(10) << "Time" << setw(15) << "Status" << "\033[0m" << endl;
+            cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
             while ((row = mysql_fetch_row(poolRes))) {
-                jobIds.push_back(atoi(row[0]));
-                cout << left << setw(5) << jobIds.size() << setw(12) << row[1] << setw(20) << row[2]
-                    << setw(10) << row[3] << setw(15) << row[4] << endl;
+                allJobIds.push_back(atoi(row[0]));
+                allBayIds.push_back(atoi(row[6]));
+                allSlotTimes.push_back(row[7]);
+                cout << left << setw(5) << allJobIds.size() << setw(12) << row[1] << setw(16) << row[2]
+                    << setw(10) << row[3] << setw(10) << row[4] << setw(15) << row[5] << endl;
             }
         }
         mysql_free_result(poolRes);
 
+        // Check if there are any jobs at all
+        if (allJobIds.empty()) {
+            // showWarning("No jobs available today.");
+            pause();
+            return;
+        }
+
         // SELECT JOB
-        showInfo("Enter Job No. to work on (or 0 to Exit)");
-        int jobChoice = getValidInt("Enter No.", 0, (int)jobIds.size());
+        cout << endl;
+        if (myJobCount > 0 && poolCount > 0) {
+            showInfo("Enter No. to work on your job or claim a new one (0 to Exit)");
+        }
+        else if (myJobCount > 0) {
+            showInfo("Enter No. to continue working on your job (0 to Exit)");
+        }
+        else {
+            showInfo("Enter No. to claim and work on a job (0 to Exit)");
+        }
+
+        int jobChoice = getValidInt("Enter No.", 0, (int)allJobIds.size());
 
         if (jobChoice == 0) return;
-        int appointmentId = jobIds[jobChoice - 1];
+        int appointmentId = allJobIds[jobChoice - 1];
+        int selectedBayId = allBayIds[jobChoice - 1];
+        string selectedTime = allSlotTimes[jobChoice - 1];
+
+        // ENFORCE ORDER: Check if there's an earlier unassigned job on the same bay
+        string orderCheck = "SELECT a.appointmentId, v.licensePlate, TIME_FORMAT(st.slotTime, '%H:%i') as startTime "
+            "FROM APPOINTMENT a "
+            "JOIN VEHICLE v ON a.vehicleId = v.vehicleId "
+            "JOIN SLOT_TIME st ON a.slotTimeId = st.slotTimeId "
+            "WHERE a.serviceBayId = " + to_string(selectedBayId) + " "
+            "AND st.slotDate = CURDATE() "
+            "AND a.status IN ('Scheduled', 'In Progress') "
+            "AND a.assignedStaffId IS NULL "
+            "AND st.slotTime < '" + selectedTime + "' "
+            "AND a.appointmentId != " + to_string(appointmentId) + " "
+            "ORDER BY st.slotTime ASC LIMIT 1";
+
+        if (mysql_query(conn, orderCheck.c_str()) == 0) {
+            MYSQL_RES* orderRes = mysql_store_result(conn);
+            if (mysql_num_rows(orderRes) > 0) {
+                MYSQL_ROW orderRow = mysql_fetch_row(orderRes);
+                showError("Cannot take this job yet!");
+                showWarning("Earlier job must be completed first on this bay:");
+                showWarning("  -> " + string(orderRow[1]) + " at " + string(orderRow[2]) + " (Appointment #" + string(orderRow[0]) + ")");
+                showInfo("Please select the earlier job first, or wait for it to be assigned.");
+                mysql_free_result(orderRes);
+                pause();
+                return;
+            }
+            mysql_free_result(orderRes);
+        }
 
         // TASK MANAGEMENT LOOP
         while (true) {
@@ -730,6 +854,29 @@ void manageServiceJobDetails() {
             string updateQ = "";
 
             if (statusChoice == 2) {
+                // Check if appointment is already assigned
+                string checkAssign = "SELECT assignedStaffId FROM APPOINTMENT WHERE appointmentId = " + to_string(appointmentId);
+                mysql_query(conn, checkAssign.c_str());
+                MYSQL_RES* assignRes = mysql_store_result(conn);
+                MYSQL_ROW assignRow = mysql_fetch_row(assignRes);
+                int currentAssigned = (assignRow[0] ? atoi(assignRow[0]) : 0);
+                mysql_free_result(assignRes);
+
+                // If not assigned, claim the entire appointment
+                if (currentAssigned == 0) {
+                    // Assign appointment to this mechanic
+                    string assignApp = "UPDATE APPOINTMENT SET assignedStaffId = " + to_string(currentStaffId) +
+                        " WHERE appointmentId = " + to_string(appointmentId);
+                    mysql_query(conn, assignApp.c_str());
+
+                    // Assign ALL tasks to this mechanic
+                    string assignTasks = "UPDATE APPOINTMENT_SERVICE SET staffId = " + to_string(currentStaffId) +
+                        " WHERE appointmentId = " + to_string(appointmentId);
+                    mysql_query(conn, assignTasks.c_str());
+
+                    showSuccess("You are now assigned to this job. Complete ALL tasks.");
+                }
+
                 updateQ = "UPDATE APPOINTMENT_SERVICE SET "
                     "serviceStatus = 'In Progress', "
                     "startedAt = NOW(), "
@@ -780,14 +927,30 @@ void manageServiceJobDetails() {
                     showWarning("SYSTEM ALERT: All tasks for this appointment are COMPLETED.");
                     if (getConfirmation("Mark Main Appointment as 'Completed' (Release Bay)?")) {
                         mysql_query(conn, ("UPDATE APPOINTMENT SET status = 'Completed' WHERE appointmentId = " + to_string(appointmentId)).c_str());
-                        showSuccess("Job Done. Returning to menu...");
+
+                        // Auto-release bay: Set bay status to Available
+                        string bayQuery = "UPDATE SERVICE_BAY sb "
+                            "JOIN APPOINTMENT a ON sb.serviceBayId = a.serviceBayId "
+                            "SET sb.bayStatus = 'Available' "
+                            "WHERE a.appointmentId = " + to_string(appointmentId);
+                        mysql_query(conn, bayQuery.c_str());
+
+                        showSuccess("Job Done. Bay released and available.");
                         pause();
                         break;
                     }
                 }
                 else {
                     if (statusChoice == 2) {
-                        mysql_query(conn, ("UPDATE APPOINTMENT SET status = 'In Progress' WHERE appointmentId = " + to_string(appointmentId) + " AND status = 'Scheduled'").c_str());
+                        // Auto-occupy bay when work starts
+                        string updateApp = "UPDATE APPOINTMENT SET status = 'In Progress' WHERE appointmentId = " + to_string(appointmentId) + " AND status = 'Scheduled'";
+                        if (mysql_query(conn, updateApp.c_str()) == 0 && mysql_affected_rows(conn) > 0) {
+                            string bayQuery = "UPDATE SERVICE_BAY sb "
+                                "JOIN APPOINTMENT a ON sb.serviceBayId = a.serviceBayId "
+                                "SET sb.bayStatus = 'Occupied' "
+                                "WHERE a.appointmentId = " + to_string(appointmentId);
+                            mysql_query(conn, bayQuery.c_str());
+                        }
                     }
                 }
             }
@@ -858,11 +1021,12 @@ void cancelAppointment() {
         int cancelChoice = getValidInt("\nEnter Appointment No. to cancel", 1, (int)cancelIds.size());
         int appointmentId = cancelIds[cancelChoice - 1];
 
-        query = "SELECT slotTimeId FROM APPOINTMENT WHERE appointmentId = " + to_string(appointmentId);
+        query = "SELECT slotTimeId, serviceBayId FROM APPOINTMENT WHERE appointmentId = " + to_string(appointmentId);
         if (mysql_query(conn, query.c_str())) return;
         res = mysql_store_result(conn);
         row = mysql_fetch_row(res);
         int slotTimeId = atoi(row[0]);
+        int serviceBayId = atoi(row[1]);
         mysql_free_result(res);
 
         if (getConfirmation("Are you sure you want to cancel this appointment?")) {
@@ -872,7 +1036,12 @@ void cancelAppointment() {
                 query = "UPDATE SLOT_TIME SET currentBookings = currentBookings - 1, isAvailable = TRUE WHERE slotTimeId = " + to_string(slotTimeId);
                 mysql_query(conn, query.c_str());
 
+                // Auto-release bay: Set bay status to Available
+                query = "UPDATE SERVICE_BAY SET bayStatus = 'Available' WHERE serviceBayId = " + to_string(serviceBayId);
+                mysql_query(conn, query.c_str());
+
                 showSuccess("Appointment Cancelled Successfully.");
+                showInfo("Bay released and available.");
             }
             else {
                 showError("Error: " + string(mysql_error(conn)));
