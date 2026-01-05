@@ -236,6 +236,14 @@ void createAppointment() {
         cout << endl;
         printSubHeader("Schedule");
 
+        // Show total duration and inform about slot filtering
+        cout << "\033[90mTotal service time: " << totalDuration << " mins. ";
+        if (totalDuration > 45) {
+            cout << "Late slots will be limited to ensure completion by 17:15.\033[0m" << endl;
+        } else {
+            cout << "\033[0m" << endl;
+        }
+
         string rawDate = getSmartDateInput("Enter Date (YYYYMMDD)", false);
         string date = "'" + rawDate + "'";
 
@@ -263,6 +271,7 @@ void createAppointment() {
         }
 
         // Dynamic availability: Count non-maintenance bays minus overlapping appointments
+        // Also filter slots where service would extend past 17:15 (15-min buffer after closing)
         query = "SELECT st.slotTimeId, st.slotTime, "
             "( "
             "   (SELECT COUNT(*) FROM SERVICE_BAY WHERE bayStatus != 'Maintenance') - "
@@ -277,6 +286,7 @@ void createAppointment() {
             "FROM SLOT_TIME st "
             "WHERE st.slotDate = " + date + " "
             "AND (st.slotDate != CURDATE() OR st.slotTime > CURTIME()) "
+            "AND ADDTIME(st.slotTime, SEC_TO_TIME(" + to_string(totalDuration * 60) + ")) <= '17:15:00' "
             "HAVING avail > 0 "
             "ORDER BY st.slotTime";
 
@@ -284,7 +294,9 @@ void createAppointment() {
         res = mysql_store_result(conn);
 
         if (mysql_num_rows(res) == 0) {
-            showError("No slots available (or created) for " + rawDate + ".");
+            showError("No slots available for " + rawDate + ".");
+            showInfo("Possible reasons: Fully booked, past date, or service duration (" +
+                to_string(totalDuration) + " mins) exceeds remaining time before closing.");
             mysql_free_result(res); pause(); return;
         }
 
@@ -325,6 +337,14 @@ void createAppointment() {
         row = mysql_fetch_row(res);
         string endTime = row[0];
         mysql_free_result(res);
+
+        // Safety check: Ensure service completes by 17:15 (15-min buffer after closing)
+        if (endTime > "17:15:00") {
+            showError("Selected slot would extend past closing time (17:15).");
+            showInfo("Total service duration: " + to_string(totalDuration) + " mins. Please choose an earlier slot.");
+            pause();
+            return;
+        }
 
         // STEP 4: BAY ALLOCATION
         query = "SELECT serviceBayId FROM SERVICE_BAY sb "
