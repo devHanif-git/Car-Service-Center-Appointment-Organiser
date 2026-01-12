@@ -9,6 +9,7 @@
 void addCustomer() {
     clearScreen();
     printSectionTitle("ADD NEW CUSTOMER");
+    cout << endl;
 
     try {
         printSubHeader("Enter Customer Details");
@@ -56,20 +57,19 @@ void addCustomer() {
 
             showSuccess("Customer Added Successfully!");
 
-            string confirmQuery = "SELECT customerId, customerName, phoneNumber, email FROM CUSTOMER "
+            string confirmQuery = "SELECT customerId, customerName, phoneNumber, email, address FROM CUSTOMER "
                 "WHERE customerId = " + to_string(newId);
 
             if (mysql_query(conn, confirmQuery.c_str()) == 0) {
                 MYSQL_RES* result = mysql_store_result(conn);
                 MYSQL_ROW row = mysql_fetch_row(result);
-
+                
                 cout << "\n\033[1;97m=== New Record in Database ===\033[0m" << endl;
-                cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Name"
-                    << setw(15) << "Phone" << setw(30) << "Email" << "\033[0m" << endl;
-                cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
-
-                cout << left << setw(5) << row[0] << setw(25) << row[1]
-                    << setw(15) << row[2] << setw(30) << row[3] << endl;
+                cout << "\033[36mID      :\033[0m " << row[0] << endl;
+                cout << "\033[36mName    :\033[0m " << row[1] << endl;
+                cout << "\033[36mPhone   :\033[0m " << row[2] << endl;
+                cout << "\033[36mEmail   :\033[0m " << row[3] << endl;
+                cout << "\033[36mAddress :\033[0m " << (row[4] ? row[4] : "-") << endl;
 
                 mysql_free_result(result);
             }
@@ -78,7 +78,7 @@ void addCustomer() {
     }
     catch (OperationCancelledException&) {
     }
-
+    setBreadcrumb("Home > Customers ");
     pause();
 }
 
@@ -88,6 +88,7 @@ void addCustomer() {
 void searchCustomer() {
     clearScreen();
     printSectionTitle("CUSTOMER SEARCH");
+    cout << endl;
 
     try {
         string term = getValidString("Enter Name, Phone, or Email to search");
@@ -126,6 +127,7 @@ void searchCustomer() {
 
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Customers");
     pause();
 }
 
@@ -135,6 +137,7 @@ void searchCustomer() {
 void viewCustomers() {
     clearScreen();
     printSectionTitle("VIEW ALL CUSTOMERS");
+    cout << endl;
 
     MYSQL_RES* result;
     MYSQL_ROW row;
@@ -166,6 +169,7 @@ void viewCustomers() {
     while (true) {
         clearScreen();
         printSectionTitle("VIEW ALL CUSTOMERS");
+        cout << endl;
 
         int offset = (currentPage - 1) * recordsPerPage;
 
@@ -197,16 +201,28 @@ void viewCustomers() {
         cout << "\n\033[36m[N]ext | [P]revious | [S]earch | [E]xit\033[0m" << endl;
 
         try {
-            string input = getValidString("Enter choice", 1, 1, false);
+            string input = getValidString("Enter choice", 1, 10, false);
+
+            if (input.length() != 1) {
+                showError("Invalid choice! Please enter N, P, S, or E.");
+                pause();
+                continue;
+            }
+
             char choice = toupper(input[0]);
 
             if (choice == 'N' && currentPage < totalPages) currentPage++;
             else if (choice == 'P' && currentPage > 1) currentPage--;
             else if (choice == 'S') { searchCustomer(); return; }
             else if (choice == 'E') break;
+            else {
+                showError("Invalid choice! Please enter N, P, S, or E.");
+                pause();
+            }
         }
         catch (OperationCancelledException&) { break; }
     }
+    setBreadcrumb("Home > Customers");
 }
 
 // ============================================
@@ -215,6 +231,7 @@ void viewCustomers() {
 void updateCustomer() {
     clearScreen();
     printSectionTitle("UPDATE CUSTOMER");
+    cout << endl;
 
     try {
         string term = getValidString("Enter Name, Phone, or Email to search");
@@ -227,21 +244,49 @@ void updateCustomer() {
         if (mysql_num_rows(res) == 0) { showError("No match found."); pause(); return; }
 
         cout << "\n\033[1;97m=== Matches ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "No." << setw(25) << "Name" << setw(15) << "Phone" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"──────────────────────────────────────────────" << "\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "No." << setw(25) << "Name" << setw(15) << "Phone" << setw(30) << "Email" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"──────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
         MYSQL_ROW row;
         vector<int> customerIds;
         while ((row = mysql_fetch_row(res))) {
             customerIds.push_back(atoi(row[0]));
-            cout << left << setw(5) << customerIds.size() << setw(25) << row[1] << setw(15) << row[2] << endl;
+            cout << left << setw(5) << customerIds.size() << setw(25) << row[1] << setw(15) << row[2] << setw(30) << row[3] << endl;
         }
         mysql_free_result(res);
 
         int customerChoice = getValidInt("\nEnter Customer No.", 1, (int)customerIds.size());
         int id = customerIds[customerChoice - 1];
 
-        cout << "\n1. Name\n2. Phone\n3. Email\n4. Address\n5. Update All\n";
-        int choice = getValidInt("Select Field", 1, 5);
+        // Fetch current customer data
+        string fetchQuery = "SELECT customerId, customerName, phoneNumber, email, address FROM CUSTOMER WHERE customerId=" + to_string(id);
+        if (mysql_query(conn, fetchQuery.c_str())) { showError("Database error"); return; }
+        MYSQL_RES* currentRes = mysql_store_result(conn);
+        MYSQL_ROW currentRow = mysql_fetch_row(currentRes);
+
+        clearScreen();
+        printSectionTitle("UPDATE CUSTOMER");
+        cout << endl;
+
+        // Display current customer data
+        cout << "\n\033[1;97m=== Current Customer Data ===\033[0m" << endl;
+        cout << "\033[36mID      :\033[0m " << currentRow[0] << endl;
+        cout << "\033[36mName    :\033[0m " << currentRow[1] << endl;
+        cout << "\033[36mPhone   :\033[0m " << currentRow[2] << endl;
+        cout << "\033[36mEmail   :\033[0m " << currentRow[3] << endl;
+        cout << "\033[36mAddress :\033[0m " << (currentRow[4] ? currentRow[4] : "-") << endl;
+        mysql_free_result(currentRes);
+
+        cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
+        cout << "\n\033[1;97m=== Select Field to Update ===\033[0m" << endl;
+        cout << "\033[36m1.\033[0m Name" << endl;
+        cout << "\033[36m2.\033[0m Phone" << endl;
+        cout << "\033[36m3.\033[0m Email" << endl;
+        cout << "\033[36m4.\033[0m Address" << endl;
+        cout << "\033[36m5.\033[0m Update All" << endl;
+
+        int choice = getValidInt("\nSelect Field", 1, 5);
+
+        cout << endl;
 
         string updateQ = "UPDATE CUSTOMER SET ";
         if (choice == 1 || choice == 5) updateQ += "customerName='" + getValidString("New Name") + "',";
@@ -256,22 +301,28 @@ void updateCustomer() {
             showError("Error: " + string(mysql_error(conn)));
         }
         else {
+            clearScreen();
+            printSectionTitle("UPDATE CUSTOMER");
+
             showSuccess("Customer Updated Successfully!");
 
-            query = "SELECT customerId, customerName, phoneNumber, email FROM CUSTOMER WHERE customerId=" + to_string(id);
+            query = "SELECT customerId, customerName, phoneNumber, email, address FROM CUSTOMER WHERE customerId=" + to_string(id);
             mysql_query(conn, query.c_str());
             res = mysql_store_result(conn);
             row = mysql_fetch_row(res);
 
             cout << "\n\033[1;97m=== Updated Record ===\033[0m" << endl;
-            cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Name" << setw(15) << "Phone" << setw(25) << "Email" << "\033[0m" << endl;
-            cout << "\033[90m" << u8"──────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
-            cout << left << setw(5) << row[0] << setw(25) << row[1] << setw(15) << row[2] << setw(25) << row[3] << endl;
+            cout << "\033[36mID      :\033[0m " << row[0] << endl;
+            cout << "\033[36mName    :\033[0m " << row[1] << endl;
+            cout << "\033[36mPhone   :\033[0m " << row[2] << endl;
+            cout << "\033[36mEmail   :\033[0m " << row[3] << endl;
+            cout << "\033[36mAddress :\033[0m " << (row[4] ? row[4] : "-") << endl;
             mysql_free_result(res);
         }
 
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Customers");
     pause();
 }
 
@@ -280,7 +331,8 @@ void updateCustomer() {
 // ============================================
 void manageCustomerRecords() {
     int choice;
-    do {
+
+    auto displayMenu = [&]() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
@@ -289,9 +341,13 @@ void manageCustomerRecords() {
         cout << "\033[36m3.\033[0m Update Customer Details" << endl;
         cout << "\033[36m4.\033[0m View Full Customer Registry" << endl;
         cout << "\n\033[36m0.\033[0m Back to Main Menu" << endl;
+    };
+
+    do {
+        displayMenu();
 
         try {
-            choice = getValidInt("\nEnter choice", 0, 4);
+            choice = getMenuChoice("\nEnter choice", 0, 4, displayMenu);
             switch (choice) {
             case 1: setBreadcrumb("Home > Customers > Search"); searchCustomer(); break;
             case 2: setBreadcrumb("Home > Customers > Register"); addCustomer(); break;
@@ -300,6 +356,6 @@ void manageCustomerRecords() {
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; pause(); }
+        catch (OperationCancelledException&) { choice = -1; break; }
     } while (choice != 0);
 }

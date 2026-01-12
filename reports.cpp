@@ -50,27 +50,12 @@ void printReportFooter(int totalRecords) {
 }
 
 // ============================================
-// ACCESS CONTROL CHECK
-// ============================================
-bool checkReportAccess() {
-    if (currentUserRole != "Manager") {
-        cout << "\n\033[31m" << u8"╔════════════════════════════════════════════════════════════╗" << "\033[0m" << endl;
-        cout << "\033[31m" << u8"║" << "         ACCESS DENIED - MANAGER ONLY                       " << u8"║" << "\033[0m" << endl;
-        cout << "\033[31m" << u8"║" << "  Analytics & Reports require Manager-level access.         " << u8"║" << "\033[0m" << endl;
-        cout << "\033[31m" << u8"║" << "  Please contact your Manager for report requests.          " << u8"║" << "\033[0m" << endl;
-        cout << "\033[31m" << u8"╚════════════════════════════════════════════════════════════╝" << "\033[0m" << endl;
-        pause();
-        return false;
-    }
-    return true;
-}
-
-// ============================================
 // 1. APPOINTMENT SCHEDULE REPORT (DETAILED)
 // ============================================
 void viewAppointmentSchedule() {
     clearScreen();
     printSectionTitle("APPOINTMENT SCHEDULE REPORT");
+    cout << endl;
 
     try {
         printSubHeader("Define Report Period");
@@ -214,6 +199,7 @@ void viewAppointmentSchedule() {
         printReportFooter(totalAppointments);
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Reports");
     pause();
 }
 
@@ -223,6 +209,7 @@ void viewAppointmentSchedule() {
 void viewFinancialReport() {
     clearScreen();
     printSectionTitle("FINANCIAL REPORT - SALES");
+    cout << endl;
 
     try {
         printSubHeader("Define Report Period");
@@ -236,14 +223,10 @@ void viewFinancialReport() {
         }
 
         showLoadingStart("Generating financial report");
-        printReportHeader("FINANCIAL REPORT - SALES", startDate, endDate);
-
-        // Section 1: Daily Revenue Breakdown
-        printSectionDivider("DAILY REVENUE BREAKDOWN");
 
         string dailyQuery = "SELECT DATE(st.slotDate) as day, "
             "COUNT(DISTINCT a.appointmentId) as appointments, "
-            "COUNT(aps.appointmentServiceId) as services_done, "
+            "COUNT(*) as services_done, "
             "SUM(sv.basePrice) as revenue "
             "FROM APPOINTMENT_SERVICE aps "
             "JOIN APPOINTMENT a ON aps.appointmentId = a.appointmentId "
@@ -261,7 +244,13 @@ void viewFinancialReport() {
         }
 
         MYSQL_RES* dailyResult = mysql_store_result(conn);
+
         showLoadingComplete();
+
+        printReportHeader("FINANCIAL REPORT - SALES", startDate, endDate);
+
+        // Section 1: Daily Revenue Breakdown
+        printSectionDivider("DAILY REVENUE BREAKDOWN");
 
         cout << "\033[36m" << left
             << setw(15) << "Date"
@@ -301,7 +290,7 @@ void viewFinancialReport() {
         printSectionDivider("REVENUE BY SERVICE TYPE");
 
         string serviceQuery = "SELECT sv.serviceName, "
-            "COUNT(aps.appointmentServiceId) as qty, "
+            "COUNT(*) as qty, "
             "sv.basePrice as unit_price, "
             "SUM(sv.basePrice) as total "
             "FROM APPOINTMENT_SERVICE aps "
@@ -397,6 +386,7 @@ void viewFinancialReport() {
         }
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Reports");
     pause();
 }
 
@@ -406,6 +396,7 @@ void viewFinancialReport() {
 void viewMechanicPerformance() {
     clearScreen();
     printSectionTitle("MECHANIC PERFORMANCE REPORT");
+    cout << endl;
 
     try {
         printSubHeader("Define Report Period");
@@ -423,7 +414,7 @@ void viewMechanicPerformance() {
 
         // Get all mechanics with their performance
         string mechQuery = "SELECT s.staffId, s.fullName, "
-            "COUNT(aps.appointmentServiceId) as jobs, "
+            "COUNT(*) as jobs, "
             "SUM(sv.standardDuration) as expected_time, "
             "SUM(IFNULL(NULLIF(aps.actualDuration, 0), sv.standardDuration)) as actual_time,"
             "SUM(sv.basePrice) as revenue "
@@ -568,6 +559,7 @@ void viewMechanicPerformance() {
         printReportFooter(totalJobs);
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Reports");
     pause();
 }
 
@@ -577,6 +569,7 @@ void viewMechanicPerformance() {
 void viewServiceTrends() {
     clearScreen();
     printSectionTitle("SERVICE TRENDS & POPULARITY");
+    cout << endl;
 
     try {
         printSubHeader("Define Report Period");
@@ -726,6 +719,7 @@ void viewServiceTrends() {
         printReportFooter(totalBookings);
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Reports");
     pause();
 }
 
@@ -734,9 +728,11 @@ void viewServiceTrends() {
 // ============================================
 void viewCustomerAnalytics() {
     int choice;
-    do {
+
+    auto displayMenu = [&]() {
         clearScreen();
         printSectionTitle("CUSTOMER ANALYTICS & INSIGHTS");
+        cout << endl;
 
         cout << "\033[1;97mSelect Analytics Type:\033[0m" << endl;
         cout << "\033[36m1.\033[0m VIP Customers (Top Spenders)" << endl;
@@ -745,9 +741,13 @@ void viewCustomerAnalytics() {
         cout << "\033[36m4.\033[0m New Customer Growth Analysis" << endl;
         cout << "\033[36m5.\033[0m Customer Transaction History" << endl;
         cout << "\n\033[36m0.\033[0m Back to Reports Menu" << endl;
+    };
+
+    do {
+        displayMenu();
 
         try {
-            choice = getValidInt("\nEnter choice", 0, 5);
+            choice = getMenuChoice("\nEnter choice", 0, 5, displayMenu);
             MYSQL_RES* result;
             MYSQL_ROW row;
 
@@ -763,7 +763,7 @@ void viewCustomerAnalytics() {
 
             string query = "SELECT c.customerId, c.customerName, c.phoneNumber, c.email, "
                 "COUNT(DISTINCT a.appointmentId) as visits, "
-                "COUNT(aps.appointmentServiceId) as total_services, "
+                "COUNT(*) as total_services, "
                 "SUM(sv.basePrice) as total_spent "
                 "FROM CUSTOMER c "
                 "JOIN VEHICLE v ON c.customerId = v.customerId "
@@ -1199,13 +1199,9 @@ void viewCustomerAnalytics() {
 // MAIN REPORTS MENU (MANAGER ONLY)
 // ============================================
 void generateReports() {
-    // Access Control Check
-    if (!checkReportAccess()) {
-        return;
-    }
-
     int choice;
-    do {
+
+    auto displayMenu = [&]() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
@@ -1216,9 +1212,13 @@ void generateReports() {
         cout << "\033[36m5.\033[0m Customer Analytics & Insights" << endl;
 
         cout << "\n\033[36m0.\033[0m Back to Main Menu" << endl;
+    };
+
+    do {
+        displayMenu();
 
         try {
-            choice = getValidInt("\nEnter choice", 0, 5);
+            choice = getMenuChoice("\nEnter choice", 0, 5, displayMenu);
             switch (choice) {
             case 1: setBreadcrumb("Home > Reports > Appointments"); viewAppointmentSchedule(); break;
             case 2: setBreadcrumb("Home > Reports > Financial"); viewFinancialReport(); break;
@@ -1228,6 +1228,6 @@ void generateReports() {
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; }
+        catch (OperationCancelledException&) { choice = -1; break; }
     } while (choice != 0);
 }

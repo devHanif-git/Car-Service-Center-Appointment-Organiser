@@ -4,6 +4,11 @@
 #include "globals.h"
 
 // ============================================
+// HELPER DISPLAY FUNCTION
+// ============================================
+void displayCustomerVehicles(int customerId);
+
+// ============================================
 // VEHICLE MANAGEMENT FUNCTIONS
 // ============================================
 void addVehicle();

@@ -44,16 +44,16 @@ void showInfo(const string& message) {
 // LOADING INDICATOR
 // ============================================
 void showLoadingStart(const string& message) {
-    cout << "\033[36m" << message << " \033[0m" << flush;
+    cout << "\n\033[36m" << message << " \033[0m" << flush;
 }
 
 void showLoadingProgress(int current, int total) {
     int percent = (total > 0) ? (current * 100 / total) : 0;
-    cout << "\r\033[36m[" << percent << "%] Processing... \033[0m" << flush;
+    cout << "\n\r\033[36m[" << percent << "%] Processing... \033[0m" << flush;
 }
 
 void showLoadingComplete() {
-    cout << "\r\033[32m[100%] Complete!              \033[0m" << endl;
+    cout << "\n\r\033[32m[100%] Complete!              \033[0m" << endl;
 }
 
 // ============================================

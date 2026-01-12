@@ -7,28 +7,34 @@
 // ADD STAFF
 // ============================================
 void addStaff() {
-    clearScreen();
-    displayHeader();
-    printSectionTitle("ADD NEW STAFF");
-
     try {
-        printSubHeader("Enter Staff Details");
-        string name = getValidString("Full Name");
-        string username = getValidString("Username");
+        string name, username;
 
-        // === DUPLICATION CHECK ===
-        string checkQuery = "SELECT COUNT(*) FROM STAFF WHERE username = '" + username + "'";
-        if (mysql_query(conn, checkQuery.c_str())) return;
+        while (true) {
+            clearScreen();
+            displayBreadcrumb();
+            printSectionTitle("ADD NEW STAFF");
+            cout << endl;
+            printSubHeader("Enter Staff Details");
 
-        MYSQL_RES* res = mysql_store_result(conn);
-        MYSQL_ROW row = mysql_fetch_row(res);
-        int count = atoi(row[0]);
-        mysql_free_result(res);
+            name = getValidString("Full Name");
+            username = getValidString("Username");
 
-        if (count > 0) {
-            showError("The username '" + username + "' is already taken.");
-            pause();
-            return;
+            // === DUPLICATION CHECK ===
+            string checkQuery = "SELECT COUNT(*) FROM STAFF WHERE username = '" + username + "'";
+            if (mysql_query(conn, checkQuery.c_str())) return;
+
+            MYSQL_RES* res = mysql_store_result(conn);
+            MYSQL_ROW row = mysql_fetch_row(res);
+            int count = atoi(row[0]);
+            mysql_free_result(res);
+
+            if (count > 0) {
+                showError("The username '" + username + "' is already taken.");
+                pause();
+                continue;  // Loop back to try again
+            }
+            break;  // Valid username, exit loop
         }
 
         string password = getValidString("Password");
@@ -52,8 +58,8 @@ void addStaff() {
             // Show New Record
             query = "SELECT staffId, fullName, username, role, isActive FROM STAFF WHERE staffId=" + to_string(newId);
             mysql_query(conn, query.c_str());
-            res = mysql_store_result(conn);
-            row = mysql_fetch_row(res);
+            MYSQL_RES* res = mysql_store_result(conn);
+            MYSQL_ROW row = mysql_fetch_row(res);
 
             cout << "\n\033[1;97m=== New Staff Record ===\033[0m" << endl;
             cout << "\033[36m" << left << setw(5) << "ID" << setw(20) << "Name" << setw(15) << "Username" << setw(15) << "Role" << setw(10) << "Status" << "\033[0m" << endl;
@@ -63,6 +69,7 @@ void addStaff() {
         }
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Staff");
     pause();
 }
 
@@ -72,6 +79,7 @@ void addStaff() {
 void viewStaff() {
     clearScreen();
     printSectionTitle("VIEW STAFF LIST");
+    cout << endl;
 
     // 1. Get Statistics
     string statsQuery = "SELECT "
@@ -114,6 +122,7 @@ void viewStaff() {
     while (true) {
         clearScreen();
         printSectionTitle("VIEW STAFF LIST");
+        cout << endl;
 
         int offset = (currentPage - 1) * recordsPerPage;
 
@@ -150,15 +159,27 @@ void viewStaff() {
         cout << "\n\033[36m[N]ext | [P]revious | [E]xit\033[0m" << endl;
 
         try {
-            string input = getValidString("Enter choice", 1, 1, false);
+            string input = getValidString("Enter choice", 1, 10, false);
+
+            if (input.length() != 1) {
+                showError("Invalid choice! Please enter N, P, or E.");
+                pause();
+                continue;
+            }
+
             char choice = toupper(input[0]);
 
             if (choice == 'N' && currentPage < totalPages) currentPage++;
             else if (choice == 'P' && currentPage > 1) currentPage--;
             else if (choice == 'E') break;
+            else {
+                showError("Invalid choice! Please enter N, P, or E.");
+                pause();
+            }
         }
         catch (OperationCancelledException&) { break; }
     }
+    setBreadcrumb("Home > Staff");
 }
 
 // ============================================
@@ -167,6 +188,7 @@ void viewStaff() {
 void updateStaff() {
     clearScreen();
     printSectionTitle("UPDATE STAFF DETAILS");
+    cout << endl;
 
     try {
         string term = getValidString("Enter Name or Username to search");
@@ -223,6 +245,7 @@ void updateStaff() {
         }
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Staff");
     pause();
 }
 
@@ -232,6 +255,7 @@ void updateStaff() {
 void deactivateStaff() {
     clearScreen();
     printSectionTitle("MANAGE STAFF STATUS");
+    cout << endl;
 
     try {
         string term = getValidString("Enter Name or Username");
@@ -283,6 +307,7 @@ void deactivateStaff() {
 
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Staff");
     pause();
 }
 
@@ -291,7 +316,8 @@ void deactivateStaff() {
 // ============================================
 void manageStaff() {
     int choice;
-    do {
+
+    auto displayMenu = [&]() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
@@ -300,14 +326,18 @@ void manageStaff() {
         cout << "\033[36m3.\033[0m Update Staff Details" << endl;
         cout << "\033[36m4.\033[0m Manage Staff Status" << endl;
         cout << "\n\033[36m0.\033[0m Back to Main Menu" << endl;
+    };
+
+    do {
+        displayMenu();
 
         try {
-            choice = getValidInt("\nEnter choice", 0, 4);
+            choice = getMenuChoice("\nEnter choice", 0, 4, displayMenu);
             switch (choice) {
-            case 1: setBreadcrumb("Home > Staff Admin > Add Staff"); addStaff(); break;
-            case 2: setBreadcrumb("Home > Staff Admin > View Staff"); viewStaff(); break;
-            case 3: setBreadcrumb("Home > Staff Admin > Update Staff"); updateStaff(); break;
-            case 4: setBreadcrumb("Home > Staff Admin > Manage Status"); deactivateStaff(); break;
+            case 1: setBreadcrumb("Home > Staff > Add Staff"); addStaff(); break;
+            case 2: setBreadcrumb("Home > Staff > View Staff"); viewStaff(); break;
+            case 3: setBreadcrumb("Home > Staff > Update Staff"); updateStaff(); break;
+            case 4: setBreadcrumb("Home > Staff > Manage Status"); deactivateStaff(); break;
             case 0: break;
             }
         }

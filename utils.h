@@ -4,6 +4,7 @@
 #include "globals.h"
 #include <windows.h>
 #include <bcrypt.h>
+#include <functional>
 #pragma comment(lib, "bcrypt.lib")
 
 // ============================================
@@ -35,18 +36,13 @@ void pause();
 // ============================================
 string getCurrentDateStr();
 string formatSmartDate(string input);
-string getSmartDateInput(string prompt, bool allowPastDates = true);
+string getSmartDateInput(string prompt, bool allowPastDates = true, std::function<void()> redrawCallback = nullptr);
 string addDaysToDate(string dateStr, int daysToAdd);
 
 // ============================================
 // AUTO SLOT GENERATION
 // ============================================
 void autoGenerateFutureSlots(int daysToMaintain);
-
-// ============================================
-// HELPER DISPLAY FUNCTION
-// ============================================
-void displayCustomerVehicles(int customerId);
 
 // ============================================
 // PASSWORD HASHING (SHA-256)

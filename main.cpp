@@ -18,6 +18,7 @@ int main() {
     clearScreen();
     displayHeader();
     printSectionTitle("SYSTEM INITIALIZATION");
+    cout << endl;
     cout << "\033[36mConnecting to database...\033[0m" << endl;
 
     if (!connectDatabase()) {

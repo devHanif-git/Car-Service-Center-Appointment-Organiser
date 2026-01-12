@@ -9,6 +9,7 @@
 void addServiceType() {
     clearScreen();
     printSectionTitle("ADD SERVICE TYPE");
+    cout << endl;
 
     try {
         printSubHeader("Enter Service Details");
@@ -30,7 +31,7 @@ void addServiceType() {
         }
 
         int duration = getValidInt("Enter Standard Duration (minutes)", 5, 480);
-        double price = (double)getValidInt("Enter Base Price (RM)", 0, 10000);
+        double price = (double)getValidInt("Enter Base Price (RM)", 1, 10000);
         string desc = getValidString("Enter Description");
 
         string query = "INSERT INTO SERVICE_TYPE (serviceName, standardDuration, serviceDescription, basePrice) "
@@ -40,6 +41,9 @@ void addServiceType() {
             showError("Error: " + string(mysql_error(conn)));
         }
         else {
+            clearScreen();
+            printSectionTitle("ADD SERVICE TYPE");
+
             int newId = mysql_insert_id(conn);
 
             showSuccess("Service Type Added Successfully!");
@@ -51,7 +55,7 @@ void addServiceType() {
 
                 cout << "\n=== New Service Record ===\033[0m" << endl;
                 cout << left << setw(5) << "ID" << setw(25) << "Name" << setw(12) << "Duration" << setw(12) << "Price\033[0m" << endl;
-                cout << "\033[90m" << u8"──────────────────────────────────────────────────────" << "\033[0m" << endl;
+                cout << "\033[90m" << u8"────────────────────────────────────────────────" << "\033[0m" << endl;
                 cout << left << setw(5) << row[0] << setw(25) << row[1]
                     << setw(12) << (string(row[2]) + " min") << setw(12) << row[4] << endl;
                 mysql_free_result(res);
@@ -59,6 +63,7 @@ void addServiceType() {
         }
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Services");
     pause();
 }
 
@@ -68,6 +73,7 @@ void addServiceType() {
 void searchServiceType() {
     clearScreen();
     printSectionTitle("SEARCH SERVICE TYPE");
+    cout << endl;
 
     try {
         string term = getValidString("Enter Service Name or Description");
@@ -134,6 +140,7 @@ void searchServiceType() {
         mysql_free_result(result);
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Services");
     pause();
 }
 
@@ -143,6 +150,7 @@ void searchServiceType() {
 void viewServiceTypes() {
     clearScreen();
     printSectionTitle("VIEW SERVICE TYPES");
+    cout << endl;
 
     MYSQL_RES* result;
     MYSQL_ROW row;
@@ -169,6 +177,7 @@ void viewServiceTypes() {
     while (true) {
         clearScreen();
         printSectionTitle("VIEW SERVICE TYPES");
+        cout << endl;
 
         int offset = (currentPage - 1) * recordsPerPage;
 
@@ -230,16 +239,28 @@ void viewServiceTypes() {
         cout << "\n\033[36m[N]ext | [P]revious | [S]earch | [E]xit\033[0m" << endl;
 
         try {
-            string input = getValidString("Enter choice", 1, 1, false);
+            string input = getValidString("Enter choice", 1, 10, false);
+
+            if (input.length() != 1) {
+                showError("Invalid choice! Please enter N, P, S, or E.");
+                pause();
+                continue;
+            }
+
             char choice = toupper(input[0]);
 
             if (choice == 'N' && currentPage < totalPages) currentPage++;
             else if (choice == 'P' && currentPage > 1) currentPage--;
             else if (choice == 'S') { searchServiceType(); return; }
             else if (choice == 'E') break;
+            else {
+                showError("Invalid choice! Please enter N, P, S, or E.");
+                pause();
+            }
         }
         catch (OperationCancelledException&) { break; }
     }
+    setBreadcrumb("Home > Services");
 }
 
 // ============================================
@@ -248,6 +269,7 @@ void viewServiceTypes() {
 void updateServiceType() {
     clearScreen();
     printSectionTitle("UPDATE SERVICE TYPE");
+    cout << endl;
 
     try {
         string search = getValidString("Enter Service Name or Description to search");
@@ -317,6 +339,8 @@ void updateServiceType() {
             showError("Error: " + string(mysql_error(conn)));
         }
         else {
+            clearScreen();
+            printSectionTitle("UPDATE SERVICE TYPE");
             showSuccess("Service Updated Successfully!");
 
             string confirmQ = "SELECT * FROM SERVICE_TYPE WHERE serviceTypeId = " + to_string(id);
@@ -353,6 +377,7 @@ void updateServiceType() {
 
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Services");
     pause();
 }
 
@@ -361,7 +386,8 @@ void updateServiceType() {
 // ============================================
 void maintainServiceTypes() {
     int choice;
-    do {
+
+    auto displayMenu = [&]() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
@@ -370,17 +396,21 @@ void maintainServiceTypes() {
         cout << "\033[36m3.\033[0m Add New Service" << endl;
         cout << "\033[36m4.\033[0m Update Service Details" << endl;
         cout << "\n\033[36m0.\033[0m Back to Main Menu" << endl;
+    };
+
+    do {
+        displayMenu();
 
         try {
-            choice = getValidInt("\nEnter choice", 0, 4);
+            choice = getMenuChoice("\nEnter choice", 0, 4, displayMenu);
             switch (choice) {
-            case 1: setBreadcrumb("Home > Catalog > Search"); searchServiceType(); break;
-            case 2: setBreadcrumb("Home > Catalog > View All"); viewServiceTypes(); break;
-            case 3: setBreadcrumb("Home > Catalog > Add Service"); addServiceType(); break;
-            case 4: setBreadcrumb("Home > Catalog > Update"); updateServiceType(); break;
+            case 1: setBreadcrumb("Home > Services > Search"); searchServiceType(); break;
+            case 2: setBreadcrumb("Home > Services > View All"); viewServiceTypes(); break;
+            case 3: setBreadcrumb("Home > Services > Add Service"); addServiceType(); break;
+            case 4: setBreadcrumb("Home > Services > Update"); updateServiceType(); break;
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; pause(); }
+        catch (OperationCancelledException&) { choice = -1; break; }
     } while (choice != 0);
 }

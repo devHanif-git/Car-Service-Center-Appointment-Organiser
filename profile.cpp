@@ -7,10 +7,11 @@
 // VIEW MY PROFILE
 // ============================================
 void viewMyProfile() {
-    while (true) {
+    auto displayMenu = [&]() {
         clearScreen();
         displayBreadcrumb();
         printSectionTitle("MY PROFILE - " + currentStaffName);
+        cout << endl;
 
         // 1. Fetch Latest Data
         string query = "SELECT staffId, fullName, username, role FROM STAFF WHERE staffId=" + to_string(currentStaffId);
@@ -28,9 +29,13 @@ void viewMyProfile() {
         cout << "\n\033[90m" << u8"────────────────────────────" << "\033[0m" << endl;
         cout << "\033[36m1.\033[0m Change Password" << endl;
         cout << "\033[36m0.\033[0m Back to Main Menu" << endl;
+    };
+
+    while (true) {
+        displayMenu();
 
         try {
-            int choice = getValidInt("\nEnter choice", 0, 1);
+            int choice = getMenuChoice("\nEnter choice", 0, 1, displayMenu);
             if (choice == 0) break;
 
             if (choice == 1) {
@@ -44,8 +49,8 @@ void viewMyProfile() {
                 // Verify against DB
                 string verifyQ = "SELECT count(*) FROM STAFF WHERE staffId=" + to_string(currentStaffId) + " AND password='" + hashedOldPass + "'";
                 mysql_query(conn, verifyQ.c_str());
-                res = mysql_store_result(conn);
-                row = mysql_fetch_row(res);
+                MYSQL_RES* res = mysql_store_result(conn);
+                MYSQL_ROW row = mysql_fetch_row(res);
                 int valid = atoi(row[0]);
                 mysql_free_result(res);
 
@@ -85,4 +90,5 @@ void viewMyProfile() {
         }
         catch (OperationCancelledException&) { break; }
     }
+    setBreadcrumb("Home");
 }

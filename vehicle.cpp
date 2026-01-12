@@ -3,12 +3,50 @@
 #include "input_validation.h"
 #include "ui_components.h"
 
+
+// ============================================
+// HELPER DISPLAY FUNCTION
+// ============================================
+void displayCustomerVehicles(int customerId) {
+    MYSQL_RES* result;
+    MYSQL_ROW row;
+
+    string query = "SELECT vehicleId, licensePlate, brand, model, color FROM VEHICLE "
+        "WHERE customerId = " + to_string(customerId);
+
+    if (mysql_query(conn, query.c_str())) {
+        showError("Error fetching vehicles: " + string(mysql_error(conn)));
+        return;
+    }
+
+    result = mysql_store_result(conn);
+    int num_rows = mysql_num_rows(result);
+
+    if (num_rows == 0) {
+        showInfo("This customer has no registered vehicles.");
+    }
+    else {
+        cout << "\n\033[1;97m=== Existing Vehicles for Customer ID " << customerId << " ===\033[0m" << endl;
+        cout << "\033[36m" << left << setw(5) << "ID" << setw(15) << "License" << setw(15) << "Brand"
+            << setw(15) << "Model" << setw(10) << "Color" << "\033[0m" << endl;
+        cout << "\033[90m" << u8"────────────────────────────────────────────────────────────" << "\033[0m" << endl;
+
+        while ((row = mysql_fetch_row(result))) {
+            cout << left << setw(5) << row[0] << setw(15) << row[1] << setw(15) << row[2]
+                << setw(15) << row[3] << setw(10) << row[4] << endl;
+        }
+        cout << "\033[90m" << u8"────────────────────────────────────────────────────────────" << "\033[0m" << endl;
+    }
+    mysql_free_result(result);
+}
+
 // ============================================
 // ADD VEHICLE
 // ============================================
 void addVehicle() {
     clearScreen();
     printSectionTitle("ADD NEW VEHICLE");
+    cout << endl;
 
     try {
         string searchTerm = getValidString("Enter Customer Name, Phone, or Email to search");
@@ -57,6 +95,9 @@ void addVehicle() {
 
         // Loop to add vehicles
         while (true) {
+            clearScreen();
+            printSectionTitle("ADD NEW VEHICLE");
+            cout << endl;
             cout << "\n\033[1;97m=== Add New Vehicle for " << custName << " ===\033[0m" << endl;
 
             string licensePlate = getValidString("Enter License Plate");
@@ -89,11 +130,10 @@ void addVehicle() {
                 showError("Error adding vehicle: " + string(mysql_error(conn)));
             }
             else {
+                clearScreen();
+                printSectionTitle("ADD NEW VEHICLE");
                 showSuccess("Vehicle Added Successfully!");
-                cout << "\033[90m    License : " << licensePlate << "\033[0m" << endl;
-                cout << "\033[90m    Vehicle : " << brand << " " << model << " (" << color << ")\033[0m" << endl;
-
-                showSuccess("Updating vehicle list...");
+                
                 displayCustomerVehicles(customerId);
             }
 
@@ -105,7 +145,7 @@ void addVehicle() {
     }
     catch (OperationCancelledException&) {
     }
-
+    setBreadcrumb("Home > Vehicles");
     pause();
 }
 
@@ -115,6 +155,7 @@ void addVehicle() {
 void searchVehicle() {
     clearScreen();
     printSectionTitle("VEHICLE SEARCH");
+    cout << endl;
 
     try {
         string term = getValidString("Enter Plate, Brand, Model, or Owner Name");
@@ -156,6 +197,7 @@ void searchVehicle() {
 
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Vehicles");
     pause();
 }
 
@@ -165,6 +207,7 @@ void searchVehicle() {
 void viewVehicles() {
     clearScreen();
     printSectionTitle("VIEW ALL VEHICLES");
+    cout << endl;
 
     MYSQL_RES* result;
     MYSQL_ROW row;
@@ -192,6 +235,7 @@ void viewVehicles() {
     while (true) {
         clearScreen();
         printSectionTitle("VIEW ALL VEHICLES");
+        cout << endl;
 
         int offset = (currentPage - 1) * recordsPerPage;
 
@@ -226,16 +270,28 @@ void viewVehicles() {
         cout << "\n\033[36m[N]ext | [P]revious | [S]earch | [E]xit\033[0m" << endl;
 
         try {
-            string input = getValidString("Enter choice", 1, 1, false);
+            string input = getValidString("Enter choice", 1, 10, false);
+
+            if (input.length() != 1) {
+                showError("Invalid choice! Please enter N, P, S, or E.");
+                pause();
+                continue;
+            }
+
             char choice = toupper(input[0]);
 
             if (choice == 'N' && currentPage < totalPages) currentPage++;
             else if (choice == 'P' && currentPage > 1) currentPage--;
             else if (choice == 'S') { searchVehicle(); return; }
             else if (choice == 'E') break;
+            else {
+                showError("Invalid choice! Please enter N, P, S, or E.");
+                pause();
+            }
         }
         catch (OperationCancelledException&) { break; }
     }
+    setBreadcrumb("Home > Vehicles");
 }
 
 // ============================================
@@ -244,6 +300,7 @@ void viewVehicles() {
 void updateVehicle() {
     clearScreen();
     printSectionTitle("UPDATE VEHICLE");
+    cout << endl;
 
     try {
         string term = getValidString("Enter Plate or Owner Name");
@@ -267,11 +324,52 @@ void updateVehicle() {
         }
         mysql_free_result(res);
 
-        int vehicleChoice = getValidInt("\nEnter Vehicle No. (1-" + to_string(vehicleIds.size()) + ")", 1, (int)vehicleIds.size());
+        int vehicleChoice = getValidInt("\nEnter Vehicle No.", 1, (int)vehicleIds.size());
         int id = vehicleIds[vehicleChoice - 1];
 
-        cout << "\n1. Plate\n2. Brand\n3. Model\n4. Year\n5. Color\n6. Update All\n";
+        // Fetch complete vehicle and owner details
+        string detailQuery = "SELECT v.licensePlate, v.brand, v.model, v.year, v.color, "
+            "c.customerName, c.phoneNumber, c.email "
+            "FROM VEHICLE v JOIN CUSTOMER c ON v.customerId = c.customerId "
+            "WHERE v.vehicleId = " + to_string(id);
+
+        if (mysql_query(conn, detailQuery.c_str())) {
+            showError("Error: " + string(mysql_error(conn)));
+            pause();
+            return;
+        }
+
+        MYSQL_RES* detailRes = mysql_store_result(conn);
+        MYSQL_ROW detailRow = mysql_fetch_row(detailRes);
+
+        clearScreen();
+        printSectionTitle("UPDATE VEHICLE");
+        cout << endl;
+
+        // Display owner details
+        cout << "\n\033[1;97m=== Current Owner Details ===\033[0m" << endl;
+        cout << "\033[36mName:\033[0m  " << detailRow[5] << endl;
+        cout << "\033[36mPhone:\033[0m " << detailRow[6] << endl;
+        cout << "\033[36mEmail:\033[0m " << detailRow[7] << endl;
+
+        
+        
+        // Display vehicle details
+        cout << "\n\033[1;97m=== Vehicle Details ===\033[0m" << endl;
+        cout << "\033[36mPlate:\033[0m " << detailRow[0] << endl;
+        cout << "\033[36mBrand:\033[0m " << detailRow[1] << endl;
+        cout << "\033[36mModel:\033[0m " << detailRow[2] << endl;
+        cout << "\033[36mYear:\033[0m  " << detailRow[3] << endl;
+        cout << "\033[36mColor:\033[0m " << detailRow[4] << endl;
+        
+        mysql_free_result(detailRes);
+        
+        cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
+        cout << "\n\033[1;97m=== Select Field to Update ===\033[0m" << endl;
+        cout << "1. Plate\n2. Brand\n3. Model\n4. Year\n5. Color\n6. Update All\n";
         int choice = getValidInt("Select Field", 1, 6);
+
+        cout << endl;
 
         string updateQ = "UPDATE VEHICLE SET ";
         if (choice == 1 || choice == 6) updateQ += "licensePlate='" + getValidString("New Plate") + "',";
@@ -287,6 +385,9 @@ void updateVehicle() {
             showError("Error: " + string(mysql_error(conn)));
         }
         else {
+            clearScreen();
+            printSectionTitle("UPDATE VEHICLE");
+            
             showSuccess("Vehicle Updated Successfully!");
 
             query = "SELECT vehicleId, licensePlate, brand, model, color FROM VEHICLE WHERE vehicleId=" + to_string(id);
@@ -303,6 +404,7 @@ void updateVehicle() {
 
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Vehicles");
     pause();
 }
 
@@ -312,6 +414,7 @@ void updateVehicle() {
 void viewVehicleServiceHistory() {
     clearScreen();
     printSectionTitle("VIEW VEHICLE SERVICE HISTORY");
+    cout << endl;
 
     try {
         string term = getValidString("Enter License Plate or Owner Name");
@@ -347,7 +450,7 @@ void viewVehicleServiceHistory() {
         }
         mysql_free_result(res);
 
-        int vehicleChoice = getValidInt("\nEnter Vehicle No. (1-" + to_string(historyVehicleIds.size()) + ")", 1, (int)historyVehicleIds.size());
+        int vehicleChoice = getValidInt("\nEnter Vehicle No.", 1, (int)historyVehicleIds.size());
         int vehicleId = historyVehicleIds[vehicleChoice - 1];
 
         // Display History
@@ -364,6 +467,10 @@ void viewVehicleServiceHistory() {
 
         res = mysql_store_result(conn);
         num_rows = mysql_num_rows(res);
+
+        clearScreen();
+        printSectionTitle("VIEW VEHICLE SERVICE HISTORY");
+        cout << endl;
 
         cout << "\n\033[1;97m=== Service History ===\033[0m" << endl;
         if (num_rows == 0) {
@@ -409,6 +516,7 @@ void viewVehicleServiceHistory() {
 
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Vehicles");
     pause();
 }
 
@@ -417,19 +525,24 @@ void viewVehicleServiceHistory() {
 // ============================================
 void trackVehicleRecords() {
     int choice;
-    do {
+
+    auto displayMenu = [&]() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
-        cout << "\033[36m1.\033[0m Search Vehicle" << endl;
+        cout << "\n\033[36m1.\033[0m Search Vehicle" << endl;
         cout << "\033[36m2.\033[0m View Service History" << endl;
         cout << "\033[36m3.\033[0m Register New Vehicle" << endl;
         cout << "\033[36m4.\033[0m Update Vehicle Data" << endl;
         cout << "\033[36m5.\033[0m View Full Vehicle List" << endl;
         cout << "\n\033[36m0.\033[0m Back to Main Menu" << endl;
+    };
+
+    do {
+        displayMenu();
 
         try {
-            choice = getValidInt("\nEnter choice", 0, 5);
+            choice = getMenuChoice("\nEnter choice", 0, 5, displayMenu);
             switch (choice) {
             case 1: searchVehicle(); break;
             case 2: viewVehicleServiceHistory(); break;
@@ -439,6 +552,6 @@ void trackVehicleRecords() {
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; pause(); }
+        catch (OperationCancelledException&) { choice = -1; break; }
     } while (choice != 0);
 }

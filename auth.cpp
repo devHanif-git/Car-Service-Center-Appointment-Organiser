@@ -9,6 +9,7 @@
 bool login() {
     clearScreen();
     printSectionTitle("CAR SERVICE CENTER - LOGIN");
+    cout << endl;
 
     int attempts = 0;
     while (attempts < 3) {
@@ -40,6 +41,7 @@ bool login() {
                     pause();
                     clearScreen();
                     printSectionTitle("CAR SERVICE CENTER - LOGIN");
+                    cout << endl;
 
                     continue;
                 }
@@ -62,9 +64,17 @@ bool login() {
             else {
                 showError("Invalid Username or Password. Please try again.");
                 attempts++;
-                cout << "\033[31mAttempts remaining: " << (3 - attempts) << "\033[0m\n" << endl;
+                cout << "\033[31mAttempts remaining: " << (3 - attempts) << "\033[0m" << endl;
+                mysql_free_result(result);
+
+                if (attempts < 3) {
+                    pause();
+                    clearScreen();
+                    printSectionTitle("CAR SERVICE CENTER - LOGIN");
+                    cout << "\033[31mAttempts remaining: " << (3 - attempts) << "\033[0m\n" << endl;
+                }
+                continue;
             }
-            mysql_free_result(result);
         }
         catch (OperationCancelledException&) {
             return false;

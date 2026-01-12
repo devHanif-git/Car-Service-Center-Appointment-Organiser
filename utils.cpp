@@ -27,7 +27,7 @@ void printSectionTitle(const string& title) {
     for (int i = 0; i < rightPad; i++) cout << " ";
     cout << "\033[36m" << u8"┃" << "\033[0m" << endl;
 
-    cout << "\033[36m" << u8"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" << "\033[0m\n" << endl;
+    cout << "\033[36m" << u8"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛" << "\033[0m" << endl;
 }
 
 void printSubHeader(const string& title) {
@@ -126,14 +126,27 @@ string formatSmartDate(string input) {
     return input;
 }
 
-string getSmartDateInput(string prompt, bool allowPastDates) {
+string getSmartDateInput(string prompt, bool allowPastDates, function<void()> redrawCallback) {
+    bool firstRun = true;
     while (true) {
-        cout << "\033[36m" << prompt << " [Enter for Today]: \033[0m";
+        // Redraw screen if callback provided (skip on first run)
+        if (redrawCallback && !firstRun) {
+            pause();
+            clearScreen();
+            redrawCallback();
+        }
+        firstRun = false;
+
+        cout << "\033[36m" << prompt << " [Enter for Today or @ to cancel]: \033[0m";
         string input;
         getline(cin, input);
 
         // Handle Global Cancel
-        if (trim(input) == "@") throw OperationCancelledException();
+        if (trim(input) == "@") {
+            showWarning("Operation cancelled by user.");
+            pause();
+            throw OperationCancelledException();
+        }
 
         // 1. Handle Empty -> Return Today
         if (trim(input).empty()) {
@@ -326,40 +339,4 @@ string hashPassword(const string& password) {
     BCryptCloseAlgorithmProvider(hAlg, 0);
 
     return result;
-}
-
-// ============================================
-// HELPER DISPLAY FUNCTION
-// ============================================
-void displayCustomerVehicles(int customerId) {
-    MYSQL_RES* result;
-    MYSQL_ROW row;
-
-    string query = "SELECT vehicleId, licensePlate, brand, model, color FROM VEHICLE "
-        "WHERE customerId = " + to_string(customerId);
-
-    if (mysql_query(conn, query.c_str())) {
-        showError("Error fetching vehicles: " + string(mysql_error(conn)));
-        return;
-    }
-
-    result = mysql_store_result(conn);
-    int num_rows = mysql_num_rows(result);
-
-    if (num_rows == 0) {
-        showInfo("This customer has no registered vehicles.");
-    }
-    else {
-        cout << "\n\033[1;97m=== Existing Vehicles for Customer ID " << customerId << " ===\033[0m" << endl;
-        cout << "\033[36m" << left << setw(5) << "ID" << setw(15) << "License" << setw(15) << "Brand"
-            << setw(15) << "Model" << setw(10) << "Color" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"────────────────────────────────────────────────────────────" << "\033[0m" << endl;
-
-        while ((row = mysql_fetch_row(result))) {
-            cout << left << setw(5) << row[0] << setw(15) << row[1] << setw(15) << row[2]
-                << setw(15) << row[3] << setw(10) << row[4] << endl;
-        }
-        cout << "\033[90m" << u8"────────────────────────────────────────────────────────────" << "\033[0m" << endl;
-    }
-    mysql_free_result(result);
 }

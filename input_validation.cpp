@@ -1,5 +1,6 @@
-#include "input_validation.h"
+﻿#include "input_validation.h"
 #include "ui_components.h"
+#include "utils.h"
 
 // ============================================
 // STRING HELPER
@@ -14,15 +15,25 @@ string trim(const string& str) {
 // ============================================
 // INPUT VALIDATION FUNCTIONS
 // ============================================
-string getValidString(string prompt, int minLength, int maxLength, bool allowEmpty) {
+string getValidString(string prompt, int minLength, int maxLength, bool allowEmpty, function<void()> redrawCallback) {
     string value;
+    bool firstRun = true;
     while (true) {
+        // Redraw screen if callback provided (skip on first run)
+        if (redrawCallback && !firstRun) {
+            pause();
+            clearScreen();
+            redrawCallback();
+        }
+        firstRun = false;
+
         cout << "\033[36m" << prompt << " (@ to cancel): \033[0m";
         getline(cin, value);
 
         // Check for Global Cancel
         if (trim(value) == "@") {
             showWarning("Operation cancelled by user.");
+            pause();
             throw OperationCancelledException();
         }
 
@@ -48,16 +59,26 @@ string getValidString(string prompt, int minLength, int maxLength, bool allowEmp
     }
 }
 
-int getValidInt(string prompt, int minVal, int maxVal) {
+int getValidInt(string prompt, int minVal, int maxVal, function<void()> redrawCallback) {
     string input;
     int value;
+    bool firstRun = true;
 
     while (true) {
+        // Redraw screen if callback provided (skip on first run)
+        if (redrawCallback && !firstRun) {
+            pause();
+            clearScreen();
+            redrawCallback();
+        }
+        firstRun = false;
+
         cout << "\033[36m" << prompt << " (" << minVal << "-" << maxVal << ") (@ to cancel): \033[0m";
         getline(cin, input);
 
         if (trim(input) == "@") {
             showWarning("Operation cancelled by user.");
+            pause();
             throw OperationCancelledException();
         }
 
@@ -73,6 +94,40 @@ int getValidInt(string prompt, int minVal, int maxVal) {
         }
         catch (...) {
             showError("Invalid input! Please enter a number.");
+        }
+    }
+}
+
+int getMenuChoice(string prompt, int minVal, int maxVal, function<void()> redisplayMenu) {
+    string input;
+    int value;
+
+    while (true) {
+        cout << "\033[36m" << prompt << " (" << minVal << "-" << maxVal << ") (@ to cancel): \033[0m";
+        getline(cin, input);
+
+        if (trim(input) == "@") {
+            showWarning("Operation cancelled by user.");
+            pause();
+            throw OperationCancelledException();
+        }
+
+        try {
+            value = stoi(input);
+            if (value >= minVal && value <= maxVal) {
+                updateLastActivity();
+                return value;
+            }
+            else {
+                showError("Invalid number! Please enter between " + to_string(minVal) + " and " + to_string(maxVal) + ".");
+                pause();
+                redisplayMenu();
+            }
+        }
+        catch (...) {
+            showError("Invalid input! Please enter a number.");
+            pause();
+            redisplayMenu();
         }
     }
 }

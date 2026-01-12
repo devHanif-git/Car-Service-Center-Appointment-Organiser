@@ -10,6 +10,7 @@ void viewAvailableSlots() {
     clearScreen();
     displayBreadcrumb();
     printSectionTitle("VIEW AVAILABLE SLOTS");
+    cout << endl;
 
     try {
         printSubHeader("Search Availability");
@@ -65,6 +66,7 @@ void viewAvailableSlots() {
         while (true) {
             clearScreen();
             printSectionTitle("AVAILABLE SLOTS: " + startDate + " to " + endDate);
+            cout << endl;
 
             int offset = (currentPage - 1) * recordsPerPage;
 
@@ -104,17 +106,29 @@ void viewAvailableSlots() {
             cout << "\n\033[36m[N]ext | [P]revious | [E]xit\033[0m" << endl;
 
             try {
-                string input = getValidString("Enter choice", 1, 1, false);
+                string input = getValidString("Enter choice", 1, 10, false);
+
+                if (input.length() != 1) {
+                    showError("Invalid choice! Please enter N, P, or E.");
+                    pause();
+                    continue;
+                }
+
                 char choice = toupper(input[0]);
 
                 if (choice == 'N' && currentPage < totalPages) currentPage++;
                 else if (choice == 'P' && currentPage > 1) currentPage--;
                 else if (choice == 'E') break;
+                else {
+                    showError("Invalid choice! Please enter N, P, or E.");
+                    pause();
+                }
             }
             catch (OperationCancelledException&) { break; }
         }
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Appointments");
 }
 
 // ============================================
@@ -124,11 +138,20 @@ void createAppointment() {
     clearScreen();
     displayBreadcrumb();
     printSectionTitle("CREATE APPOINTMENT");
+    cout << endl;
 
     try {
         // STEP 1: SELECT VEHICLE
+        // Define redraw callback for vehicle search
+        auto redrawVehicleSearch = []() {
+            displayBreadcrumb();
+            printSectionTitle("CREATE APPOINTMENT");
+            cout << endl;
+            printSubHeader("Select Vehicle");
+        };
+
         printSubHeader("Select Vehicle");
-        string term = getValidString("Enter Plate, Brand, or Owner Name");
+        string term = getValidString("Enter Plate, Brand, or Owner Name", 1, 100, false, redrawVehicleSearch);
 
         string query = "SELECT v.vehicleId, v.licensePlate, v.brand, v.model, c.customerName "
             "FROM VEHICLE v JOIN CUSTOMER c ON v.customerId = c.customerId "
@@ -159,8 +182,7 @@ void createAppointment() {
         int vehicleId = vehicleIds[vehicleChoice - 1];
 
         // STEP 2: SELECT SERVICES
-        cout << endl;
-        printSectionDivider("Available Services", 45);
+        // First, load all services into vectors
         query = "SELECT serviceTypeId, serviceName, standardDuration, basePrice FROM SERVICE_TYPE ORDER BY serviceName";
         mysql_query(conn, query.c_str());
         res = mysql_store_result(conn);
@@ -168,30 +190,66 @@ void createAppointment() {
         vector<int> serviceTypeIds;
         vector<int> serviceDurations;
         vector<string> serviceNames;
+        vector<string> servicePrices;
 
-        cout << "\033[36m" << left << setw(5) << "No." << setw(25) << "Service" << setw(10) << "Mins" << setw(10) << "Price" << "\033[0m" << endl;
-        cout << "\033[90m" << u8"────────────────────────────────────────────────────" << "\033[0m" << endl;
         while ((row = mysql_fetch_row(res))) {
             serviceTypeIds.push_back(atoi(row[0]));
             serviceNames.push_back(row[1]);
             serviceDurations.push_back(atoi(row[2]));
-            cout << left << setw(5) << serviceTypeIds.size() << setw(25) << row[1] << setw(10) << row[2] << setw(10) << row[3] << endl;
+            servicePrices.push_back(row[3]);
         }
         mysql_free_result(res);
-
-        cout << "\033[90m" << u8"────────────────────────────────────────────────────" << "\033[0m" << endl;
-        cout << "\033[36m0.\033[0m  Done selecting\n" << endl;
 
         vector<int> serviceIds;
         vector<string> selectedNames;
         int totalDuration = 0;
+        string lastAddedService = "";
+        bool showAddedMsg = false;
 
         while (true) {
+            // Redraw screen each iteration
+            clearScreen();
+            displayBreadcrumb();
+            printSectionTitle("CREATE APPOINTMENT");
+
+            printSectionDivider("Available Services", 45);
+            cout << "\033[36m" << left << setw(5) << "No." << setw(25) << "Service" << setw(10) << "Mins" << setw(10) << "Price" << "\033[0m" << endl;
+            cout << "\033[90m" << u8"────────────────────────────────────────────────" << "\033[0m" << endl;
+            for (size_t i = 0; i < serviceTypeIds.size(); i++) {
+                cout << left << setw(5) << (i + 1) << setw(25) << serviceNames[i] << setw(10) << serviceDurations[i] << setw(10) << servicePrices[i] << endl;
+            }
+            cout << "\033[90m" << u8"────────────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "\033[36m0.\033[0m   Done selecting" << endl;
+
+            bool flag = false;
+            // Show success message and selected services if any were added
+            if (showAddedMsg && !lastAddedService.empty()) {
+                showSuccess("Added: " + lastAddedService);
+                flag = true;
+            }
+
+            if (!selectedNames.empty()) {
+                if (!flag) cout << endl;
+                cout << "\033[90mSelected: ";
+                for (size_t i = 0; i < selectedNames.size(); i++) {
+                    cout << selectedNames[i];
+                    if (i < selectedNames.size() - 1) {
+                        cout << ", ";
+                        if ((i + 1) % 3 == 0) cout << "\n          ";  // newline after every 3
+                    }
+                }
+                cout << "\033[0m" << endl;
+            }
+            cout << endl;
+
             int serviceChoice = getValidInt("Enter Service No. (or 0 when done)", 0, (int)serviceTypeIds.size());
 
             if (serviceChoice == 0) {
                 if (serviceIds.empty()) {
                     showWarning("Please select at least one service.");
+                    showAddedMsg = false;
+                    lastAddedService = "";
+                    pause();
                     continue;
                 }
                 break;
@@ -211,40 +269,38 @@ void createAppointment() {
 
             if (alreadySelected) {
                 showWarning("'" + selectedName + "' is already selected.");
+                showAddedMsg = false;
+                lastAddedService = "";
+                pause();
                 continue;
             }
 
             serviceIds.push_back(selectedId);
             selectedNames.push_back(selectedName);
             totalDuration += serviceDurations[serviceChoice - 1];
-
-            showSuccess("Added: " + selectedName);
-
-            // Show selected services so far
-            cout << "\033[90mSelected: ";
-            for (size_t i = 0; i < selectedNames.size(); i++) {
-                cout << selectedNames[i];
-                if (i < selectedNames.size() - 1) {
-                    cout << ", ";
-                    if ((i + 1) % 3 == 0) cout << "\n          ";  // newline after every 3
-                }
-            }
-            cout << "\033[0m\n" << endl;
+            lastAddedService = selectedName;
+            showAddedMsg = true;
         }
 
         // STEP 3: DATE & TIME
-        cout << endl;
-        printSubHeader("Schedule");
+        // Define redraw callback for date input
+        auto redrawSchedule = [&]() {
+            displayBreadcrumb();
+            printSectionTitle("CREATE APPOINTMENT");
+            cout << endl;
+            printSubHeader("Schedule");
+            cout << "\033[90mTotal service time: " << totalDuration << " mins. ";
+            if (totalDuration > 45) {
+                cout << "Late slots will be limited to ensure completion by 17:15.\033[0m" << endl;
+            } else {
+                cout << "\033[0m" << endl;
+            }
+        };
 
-        // Show total duration and inform about slot filtering
-        cout << "\033[90mTotal service time: " << totalDuration << " mins. ";
-        if (totalDuration > 45) {
-            cout << "Late slots will be limited to ensure completion by 17:15.\033[0m" << endl;
-        } else {
-            cout << "\033[0m" << endl;
-        }
+        clearScreen();
+        redrawSchedule();
 
-        string rawDate = getSmartDateInput("Enter Date (YYYYMMDD)", false);
+        string rawDate = getSmartDateInput("Enter Date (YYYYMMDD)", false, redrawSchedule);
         string date = "'" + rawDate + "'";
 
         // Check if vehicle already has an active appointment on this date
@@ -397,21 +453,81 @@ void createAppointment() {
 
             mysql_query(conn, ("UPDATE SLOT_TIME SET currentBookings = currentBookings + 1 WHERE slotTimeId = " + to_string(slotTimeId)).c_str());
 
-            // Get bay name for display
-            string bayNameQuery = "SELECT bayName FROM SERVICE_BAY WHERE serviceBayId = " + to_string(bayId);
-            mysql_query(conn, bayNameQuery.c_str());
-            MYSQL_RES* bayRes = mysql_store_result(conn);
-            MYSQL_ROW bayRow = mysql_fetch_row(bayRes);
-            string bayName = bayRow[0];
-            mysql_free_result(bayRes);
+            // Fetch complete details for the ticket
+            string detailQuery = "SELECT c.customerName, c.phoneNumber, c.email, "
+                "v.licensePlate, v.brand, v.model, v.year, v.color, "
+                "sb.bayName "
+                "FROM VEHICLE v "
+                "JOIN CUSTOMER c ON v.customerId = c.customerId "
+                "JOIN SERVICE_BAY sb ON sb.serviceBayId = " + to_string(bayId) + " "
+                "WHERE v.vehicleId = " + to_string(vehicleId);
 
-            showSuccess("Appointment Created Successfully! (ID: " + to_string(appId) + ")");
-            showSuccess("Assigned to: " + bayName);
-            showSuccess("Estimated End Time: " + endTime);
+            mysql_query(conn, detailQuery.c_str());
+            MYSQL_RES* detailRes = mysql_store_result(conn);
+            MYSQL_ROW detailRow = mysql_fetch_row(detailRes);
+
+            string custName = detailRow[0];
+            string custPhone = detailRow[1];
+            string custEmail = detailRow[2];
+            string vPlate = detailRow[3];
+            string vBrand = detailRow[4];
+            string vModel = detailRow[5];
+            string vYear = detailRow[6];
+            string vColor = detailRow[7];
+            string bayName = detailRow[8];
+            mysql_free_result(detailRes);
+
+            // Display appointment ticket
+            clearScreen();
+            displayBreadcrumb();
+            printSectionTitle("CREATE APPOINTMENT");
+
+            showSuccess("Appointment Created Successfully!");
+
+            cout << "\n\033[1;97m" << u8"═══════════════════════════════════════════════════════" << "\033[0m" << endl;
+            cout << "\033[1;97m           APPOINTMENT CONFIRMATION #" << appId << "\033[0m" << endl;
+            cout << "\033[1;97m" << u8"═══════════════════════════════════════════════════════" << "\033[0m" << endl;
+
+            // Customer Details
+            cout << "\n\033[1;97m" << u8"── CUSTOMER ───────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "  \033[36mName  :\033[0m " << custName << endl;
+            cout << "  \033[36mPhone :\033[0m " << custPhone << endl;
+            cout << "  \033[36mEmail :\033[0m " << custEmail << endl;
+
+            // Vehicle Details
+            cout << "\n\033[1;97m" << u8"── VEHICLE ────────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "  \033[36mPlate :\033[0m " << vPlate << endl;
+            cout << "  \033[36mCar   :\033[0m " << vBrand << " " << vModel << " (" << vYear << ")" << endl;
+            cout << "  \033[36mColor :\033[0m " << vColor << endl;
+
+            // Service Details
+            cout << "\n\033[1;97m" << u8"── SERVICES (" << selectedNames.size() << ") " << u8"────────────────────────────────────────" << "\033[0m" << endl;
+            for (size_t i = 0; i < selectedNames.size(); i++) {
+                cout << "  \033[32m" << (i + 1) << ".\033[0m " << selectedNames[i] << endl;
+            }
+            cout << "  \033[90m" << u8"─────────────────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "  \033[36mTotal Duration:\033[0m " << totalDuration << " mins" << endl;
+
+            // Schedule Details
+            cout << "\n\033[1;97m" << u8"── SCHEDULE ───────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "  \033[36mDate       :\033[0m " << rawDate << endl;
+            cout << "  \033[36mStart Time :\033[0m " << startTime << endl;
+            cout << "  \033[36mEnd Time   :\033[0m " << endTime << endl;
+            cout << "  \033[36mBay        :\033[0m \033[1;33m" << bayName << "\033[0m" << endl;
+
+            // Status
+            cout << "\n\033[1;97m" << u8"── STATUS ─────────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "  \033[36mStatus :\033[0m \033[32mScheduled\033[0m" << endl;
+            if (!notes.empty()) {
+                cout << "  \033[36mNotes  :\033[0m " << notes << endl;
+            }
+
+            cout << "\033[1;97m" << u8"═══════════════════════════════════════════════════════" << "\033[0m" << endl;
         }
 
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Appointments");
     pause();
 }
 
@@ -422,6 +538,7 @@ void viewAppointments() {
     clearScreen();
     displayBreadcrumb();
     printSectionTitle("VIEW APPOINTMENTS");
+    cout << endl;
 
     try {
         printSubHeader("Filter Options");
@@ -457,6 +574,9 @@ void viewAppointments() {
             break;
         }
 
+        // Update breadcrumb after filter selection
+        setBreadcrumb("Home > Appointments > Dashboard > View Appointment");
+
         string countQuery = "SELECT COUNT(*) FROM APPOINTMENT a "
             "JOIN VEHICLE v ON a.vehicleId = v.vehicleId "
             "JOIN CUSTOMER c ON v.customerId = c.customerId "
@@ -486,7 +606,9 @@ void viewAppointments() {
 
         while (true) {
             clearScreen();
+            displayBreadcrumb();
             printSectionTitle("VIEW APPOINTMENTS - Page " + to_string(currentPage) + "/" + to_string(totalPages));
+            cout << endl;
 
             int offset = (currentPage - 1) * recordsPerPage;
 
@@ -560,18 +682,31 @@ void viewAppointments() {
             cout << "\n\033[36m[N]ext | [P]revious | [E]xit\033[0m" << endl;
 
             try {
-                string input = getValidString("Enter choice", 1, 1, false);
+                string input = getValidString("Enter choice", 1, 10, false);
+
+                if (input.length() != 1) {
+                    showError("Invalid choice! Please enter N, P, or E.");
+                    pause();
+                    continue;
+                }
+
                 char nav = toupper(input[0]);
 
                 if (nav == 'N' && currentPage < totalPages) currentPage++;
                 else if (nav == 'P' && currentPage > 1) currentPage--;
                 else if (nav == 'E') break;
+                else {
+                    showError("Invalid choice! Please enter N, P, or E.");
+                    pause();
+                }
             }
             catch (OperationCancelledException&) { break; }
         }
 
+        setBreadcrumb("Home > Appointments > Dashboard");
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Appointments");
 }
 
 // ============================================
@@ -581,6 +716,7 @@ void updateAppointmentStatus() {
     clearScreen();
     displayBreadcrumb();
     printSectionTitle("UPDATE APPOINTMENT STATUS");
+    cout << endl;
 
     try {
         cout << "\033[1;97mSearch Criteria:\033[0m" << endl;
@@ -641,14 +777,54 @@ void updateAppointmentStatus() {
         int appointmentChoice = getValidInt("\nEnter Appointment No.", 1, (int)appointmentIds.size());
         int appointmentId = appointmentIds[appointmentChoice - 1];
 
+        // Clear screen and redisplay header
+        clearScreen();
+        displayBreadcrumb();
+        printSectionTitle("UPDATE APPOINTMENT STATUS");
         cout << endl;
-        cout << "\033[1;97m=== Set New Status ===\033[0m" << endl;
+
+        // Fetch and display appointment details
+        string detailQuery = "SELECT a.appointmentId, c.customerName, v.licensePlate, v.brand, v.model, "
+            "sb.bayName, st.slotDate, st.slotTime, a.status "
+            "FROM APPOINTMENT a "
+            "JOIN VEHICLE v ON a.vehicleId = v.vehicleId "
+            "JOIN CUSTOMER c ON v.customerId = c.customerId "
+            "JOIN SERVICE_BAY sb ON a.serviceBayId = sb.serviceBayId "
+            "JOIN SLOT_TIME st ON a.slotTimeId = st.slotTimeId "
+            "WHERE a.appointmentId = " + to_string(appointmentId);
+
+        if (mysql_query(conn, detailQuery.c_str())) {
+            showError("Error fetching details: " + string(mysql_error(conn)));
+            pause();
+            return;
+        }
+
+        MYSQL_RES* detailRes = mysql_store_result(conn);
+        MYSQL_ROW detailRow = mysql_fetch_row(detailRes);
+
+        if (detailRow) {
+            string currentStatus = detailRow[8];
+            string statusColor = "\033[0m";
+            if (currentStatus == "Scheduled") statusColor = "\033[36m";
+            else if (currentStatus == "In Progress") statusColor = "\033[33m";
+            else if (currentStatus == "Completed") statusColor = "\033[32m";
+            else if (currentStatus == "Cancelled") statusColor = "\033[31m";
+
+            printSectionDivider("Appointment #" + string(detailRow[0]), 50);
+            cout << "\033[36mCustomer:\033[0m " << detailRow[1] << endl;
+            cout << "\033[36mVehicle :\033[0m " << detailRow[2] << " - " << detailRow[3] << " " << detailRow[4] << endl;
+            cout << "\033[36mSchedule:\033[0m " << detailRow[6] << " at " << detailRow[7] << " (" << detailRow[5] << ")" << endl;
+            cout << "\033[36mStatus  :\033[0m " << statusColor << currentStatus << "\033[0m" << endl;
+        }
+        mysql_free_result(detailRes);
+
+        cout << "\n\033[1;97m=== Set New Status ===\033[0m" << endl;
         cout << "\033[36m1.\033[0m Scheduled" << endl;
         cout << "\033[36m2.\033[0m In Progress" << endl;
         cout << "\033[36m3.\033[0m Completed" << endl;
         cout << "\033[36m4.\033[0m Cancelled" << endl;
 
-        int statusChoice = getValidInt("Enter choice", 1, 4);
+        int statusChoice = getValidInt("\nEnter choice", 1, 4);
         string status[] = { "", "Scheduled", "In Progress", "Completed", "Cancelled" };
 
         // Get the serviceBayId for this appointment
@@ -687,6 +863,7 @@ void updateAppointmentStatus() {
 
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home > Appointments");
     pause();
 }
 
@@ -696,6 +873,7 @@ void updateAppointmentStatus() {
 void manageServiceJobDetails() {
     clearScreen();
     printSectionTitle(currentStaffName + "'S TASK MANAGER");
+    cout << endl;
 
     try {
         vector<int> allJobIds;
@@ -833,8 +1011,9 @@ void manageServiceJobDetails() {
         while (true) {
             clearScreen();
             printSectionTitle("MANAGING APPOINTMENT ID: " + to_string(appointmentId));
+            cout << endl;
 
-            string query = "SELECT aps.appointmentServiceId, st.serviceName, st.standardDuration, aps.actualDuration, aps.serviceStatus, aps.startedAt "
+            string query = "SELECT aps.serviceTypeId, st.serviceName, st.standardDuration, aps.actualDuration, aps.serviceStatus, aps.startedAt "
                 "FROM APPOINTMENT_SERVICE aps "
                 "JOIN SERVICE_TYPE st ON aps.serviceTypeId = st.serviceTypeId "
                 "WHERE aps.appointmentId = " + to_string(appointmentId);
@@ -901,10 +1080,10 @@ void manageServiceJobDetails() {
                     "serviceStatus = 'In Progress', "
                     "startedAt = NOW(), "
                     "staffId = " + to_string(currentStaffId) + " "
-                    "WHERE appointmentServiceId = " + to_string(serviceId);
+                    "WHERE appointmentId = " + to_string(appointmentId) + " AND serviceTypeId = " + to_string(serviceId);
             }
             else if (statusChoice == 3) {
-                string checkStart = "SELECT startedAt FROM APPOINTMENT_SERVICE WHERE appointmentServiceId = " + to_string(serviceId);
+                string checkStart = "SELECT startedAt FROM APPOINTMENT_SERVICE WHERE appointmentId = " + to_string(appointmentId) + " AND serviceTypeId = " + to_string(serviceId);
                 mysql_query(conn, checkStart.c_str());
                 res = mysql_store_result(conn);
                 row = mysql_fetch_row(res);
@@ -914,7 +1093,7 @@ void manageServiceJobDetails() {
                 if (!startedAt.empty()) {
                     updateQ = "UPDATE APPOINTMENT_SERVICE SET serviceStatus = 'Completed', "
                         "actualDuration = GREATEST(TIMESTAMPDIFF(MINUTE, startedAt, NOW()), 1) "
-                        "WHERE appointmentServiceId = " + to_string(serviceId);
+                        "WHERE appointmentId = " + to_string(appointmentId) + " AND serviceTypeId = " + to_string(serviceId);
                     showSuccess("Auto-calculating duration...");
                 }
                 else {
@@ -923,12 +1102,12 @@ void manageServiceJobDetails() {
                     updateQ = "UPDATE APPOINTMENT_SERVICE SET serviceStatus = 'Completed', "
                         "actualDuration = " + to_string(manualDuration) + ", startedAt = NOW(), "
                         "staffId = " + to_string(currentStaffId) + " "
-                        "WHERE appointmentServiceId = " + to_string(serviceId);
+                        "WHERE appointmentId = " + to_string(appointmentId) + " AND serviceTypeId = " + to_string(serviceId);
                 }
             }
             else {
                 updateQ = "UPDATE APPOINTMENT_SERVICE SET serviceStatus = 'Pending', startedAt = NULL, actualDuration = NULL, staffId = NULL "
-                    "WHERE appointmentServiceId = " + to_string(serviceId);
+                    "WHERE appointmentId = " + to_string(appointmentId) + " AND serviceTypeId = " + to_string(serviceId);
             }
 
             if (mysql_query(conn, updateQ.c_str())) {
@@ -977,6 +1156,7 @@ void manageServiceJobDetails() {
         }
     }
     catch (OperationCancelledException&) {}
+    setBreadcrumb("Home");
 }
 
 // ============================================
@@ -986,6 +1166,7 @@ void cancelAppointment() {
     clearScreen();
     displayBreadcrumb();
     printSectionTitle("CANCEL APPOINTMENT");
+    cout << endl;
 
     try {
         cout << "\033[1;97mSearch Appointment to Cancel:\033[0m" << endl;
@@ -1071,6 +1252,7 @@ void cancelAppointment() {
     }
     catch (OperationCancelledException&) {
     }
+    setBreadcrumb("Home > Appointments");
     pause();
 }
 
@@ -1079,7 +1261,8 @@ void cancelAppointment() {
 // ============================================
 void scheduleAppointments() {
     int choice;
-    do {
+
+    auto displayMenu = [&]() {
         clearScreen();
         displayHeader();
         displayBreadcrumb();
@@ -1089,9 +1272,13 @@ void scheduleAppointments() {
         cout << "\033[36m4.\033[0m Update Appointment Status" << endl;
         cout << "\033[36m5.\033[0m Cancel Appointment" << endl;
         cout << "\n\033[36m0.\033[0m Back to Main Menu" << endl;
+    };
+
+    do {
+        displayMenu();
 
         try {
-            choice = getValidInt("\nEnter choice", 0, 5);
+            choice = getMenuChoice("\nEnter choice", 0, 5, displayMenu);
             switch (choice) {
             case 1: setBreadcrumb("Home > Appointments > Dashboard"); viewAppointments(); break;
             case 2: setBreadcrumb("Home > Appointments > Available Slots"); viewAvailableSlots(); break;
