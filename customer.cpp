@@ -74,12 +74,10 @@ void addCustomer() {
                 mysql_free_result(result);
             }
         }
-
+        pause();
     }
-    catch (OperationCancelledException&) {
-    }
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Customers ");
-    pause();
 }
 
 // ============================================
@@ -124,11 +122,10 @@ void searchCustomer() {
             }
         }
         mysql_free_result(result);
-
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Customers");
-    pause();
 }
 
 // ============================================
@@ -166,8 +163,9 @@ void viewCustomers() {
 
     int totalPages = (totalRecords + recordsPerPage - 1) / recordsPerPage;
 
-    while (true) {
-        clearScreen();
+    // Redraw callback for paging
+    auto redrawPage = [&]() {
+        displayBreadcrumb();
         printSectionTitle("VIEW ALL CUSTOMERS");
         cout << endl;
 
@@ -177,50 +175,39 @@ void viewCustomers() {
             "ORDER BY customerId LIMIT " + to_string(recordsPerPage) +
             " OFFSET " + to_string(offset);
 
-        if (mysql_query(conn, query.c_str())) {
-            showError("Error: " + string(mysql_error(conn)));
-            pause();
-            return;
-        }
-
-        result = mysql_store_result(conn);
+        if (mysql_query(conn, query.c_str())) return;
+        MYSQL_RES* res = mysql_store_result(conn);
 
         cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Name"
             << setw(15) << "Phone" << setw(30) << "Email" << "\033[0m" << endl;
         cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
-        while ((row = mysql_fetch_row(result))) {
-            cout << left << setw(5) << row[0] << setw(25) << row[1]
-                << setw(15) << row[2] << setw(30) << row[3] << endl;
+        MYSQL_ROW r;
+        while ((r = mysql_fetch_row(res))) {
+            cout << left << setw(5) << r[0] << setw(25) << r[1]
+                << setw(15) << r[2] << setw(30) << r[3] << endl;
         }
-
-        mysql_free_result(result);
+        mysql_free_result(res);
 
         cout << "\n\033[90mPage " << currentPage << " of " << totalPages
             << " | Total: " << totalRecords << " customer(s)\033[0m" << endl;
         cout << "\n\033[36m[N]ext | [P]revious | [S]earch | [E]xit\033[0m" << endl;
+    };
+
+    while (true) {
+        clearScreen();
+        redrawPage();
 
         try {
-            string input = getValidString("Enter choice", 1, 10, false);
-
-            if (input.length() != 1) {
-                showError("Invalid choice! Please enter N, P, S, or E.");
-                pause();
-                continue;
-            }
-
+            string input = getValidString("Enter choice", 1, 1, false, redrawPage);
             char choice = toupper(input[0]);
 
             if (choice == 'N' && currentPage < totalPages) currentPage++;
             else if (choice == 'P' && currentPage > 1) currentPage--;
             else if (choice == 'S') { searchCustomer(); return; }
             else if (choice == 'E') break;
-            else {
-                showError("Invalid choice! Please enter N, P, S, or E.");
-                pause();
-            }
         }
-        catch (OperationCancelledException&) { break; }
+        catch (OperationCancelledException&) {  pause(); break; }
     }
     setBreadcrumb("Home > Customers");
 }
@@ -263,6 +250,12 @@ void updateCustomer() {
         MYSQL_RES* currentRes = mysql_store_result(conn);
         MYSQL_ROW currentRow = mysql_fetch_row(currentRes);
 
+        // Store current values
+        string currName = currentRow[1];
+        string currPhone = currentRow[2];
+        string currEmail = currentRow[3];
+        string currAddress = currentRow[4] ? currentRow[4] : "";
+
         clearScreen();
         printSectionTitle("UPDATE CUSTOMER");
         cout << endl;
@@ -270,10 +263,10 @@ void updateCustomer() {
         // Display current customer data
         cout << "\n\033[1;97m=== Current Customer Data ===\033[0m" << endl;
         cout << "\033[36mID      :\033[0m " << currentRow[0] << endl;
-        cout << "\033[36mName    :\033[0m " << currentRow[1] << endl;
-        cout << "\033[36mPhone   :\033[0m " << currentRow[2] << endl;
-        cout << "\033[36mEmail   :\033[0m " << currentRow[3] << endl;
-        cout << "\033[36mAddress :\033[0m " << (currentRow[4] ? currentRow[4] : "-") << endl;
+        cout << "\033[36mName    :\033[0m " << currName << endl;
+        cout << "\033[36mPhone   :\033[0m " << currPhone << endl;
+        cout << "\033[36mEmail   :\033[0m " << currEmail << endl;
+        cout << "\033[36mAddress :\033[0m " << (currAddress.empty() ? "-" : currAddress) << endl;
         mysql_free_result(currentRes);
 
         cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
@@ -289,10 +282,52 @@ void updateCustomer() {
         cout << endl;
 
         string updateQ = "UPDATE CUSTOMER SET ";
-        if (choice == 1 || choice == 5) updateQ += "customerName='" + getValidString("New Name") + "',";
-        if (choice == 2 || choice == 5) updateQ += "phoneNumber='" + getValidPhone("New Phone") + "',";
-        if (choice == 3 || choice == 5) updateQ += "email='" + getValidEmail("New Email") + "',";
-        if (choice == 4 || choice == 5) updateQ += "address='" + getValidString("New Address") + "',";
+        string newVal;
+
+        if (choice == 1 || choice == 5) {
+            while (true) {
+                newVal = getValidString("New Name");
+                if (newVal == currName) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "customerName='" + newVal + "',";
+        }
+        if (choice == 2 || choice == 5) {
+            while (true) {
+                newVal = getValidPhone("New Phone");
+                if (newVal == currPhone) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "phoneNumber='" + newVal + "',";
+        }
+        if (choice == 3 || choice == 5) {
+            while (true) {
+                newVal = getValidEmail("New Email");
+                if (newVal == currEmail) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "email='" + newVal + "',";
+        }
+        if (choice == 4 || choice == 5) {
+            while (true) {
+                newVal = getValidString("New Address");
+                if (newVal == currAddress) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "address='" + newVal + "',";
+        }
 
         updateQ.pop_back();
         updateQ += " WHERE customerId=" + to_string(id);
@@ -319,11 +354,10 @@ void updateCustomer() {
             cout << "\033[36mAddress :\033[0m " << (row[4] ? row[4] : "-") << endl;
             mysql_free_result(res);
         }
-
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Customers");
-    pause();
 }
 
 // ============================================
@@ -356,6 +390,6 @@ void manageCustomerRecords() {
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; break; }
+        catch (OperationCancelledException&) { choice = -1; pause();  break; }
     } while (choice != 0);
 }

@@ -63,8 +63,9 @@ void viewAvailableSlots() {
         int totalPages = (totalRecords + recordsPerPage - 1) / recordsPerPage;
         int currentPage = 1;
 
-        while (true) {
-            clearScreen();
+        // Redraw callback for paging
+        auto redrawPage = [&]() {
+            displayBreadcrumb();
             printSectionTitle("AVAILABLE SLOTS: " + startDate + " to " + endDate);
             cout << endl;
 
@@ -74,19 +75,14 @@ void viewAvailableSlots() {
                 "ORDER BY st.slotDate ASC, st.slotTime ASC " +
                 "LIMIT " + to_string(recordsPerPage) + " OFFSET " + to_string(offset);
 
-            if (mysql_query(conn, dataQuery.c_str())) {
-                showError("Error: " + string(mysql_error(conn)));
-                break;
-            }
-
-            result = mysql_store_result(conn);
+            if (mysql_query(conn, dataQuery.c_str())) return;
+            MYSQL_RES* res = mysql_store_result(conn);
 
             string currentHeaderDate = "";
-
             int slotNum = 0;
-            while ((row = mysql_fetch_row(result))) {
-                string rowDate = row[0];
-
+            MYSQL_ROW r;
+            while ((r = mysql_fetch_row(res))) {
+                string rowDate = r[0];
                 if (rowDate != currentHeaderDate) {
                     cout << "\033[1;97m[ " << rowDate << " ]\033[0m" << endl;
                     cout << "\033[36m" << left << setw(6) << "No." << setw(12) << "Time" << setw(12) << "Free Bays" << "\033[0m" << endl;
@@ -94,40 +90,32 @@ void viewAvailableSlots() {
                     currentHeaderDate = rowDate;
                     slotNum = 0;
                 }
-
                 slotNum++;
-                cout << left << setw(6) << slotNum << setw(12) << row[2]
-                    << setw(12) << row[3] << endl;
+                cout << left << setw(6) << slotNum << setw(12) << r[2] << setw(12) << r[3] << endl;
             }
-            mysql_free_result(result);
+            mysql_free_result(res);
 
             cout << u8"\n────────────────────────────────────────\033[0m" << endl;
             cout << "\033[90mPage " << currentPage << " of " << totalPages << " | Total Slots: " << totalRecords << "\033[0m" << endl;
             cout << "\n\033[36m[N]ext | [P]revious | [E]xit\033[0m" << endl;
+        };
+
+        while (true) {
+            clearScreen();
+            redrawPage();
 
             try {
-                string input = getValidString("Enter choice", 1, 10, false);
-
-                if (input.length() != 1) {
-                    showError("Invalid choice! Please enter N, P, or E.");
-                    pause();
-                    continue;
-                }
-
+                string input = getValidString("Enter choice", 1, 1, false, redrawPage);
                 char choice = toupper(input[0]);
 
                 if (choice == 'N' && currentPage < totalPages) currentPage++;
                 else if (choice == 'P' && currentPage > 1) currentPage--;
                 else if (choice == 'E') break;
-                else {
-                    showError("Invalid choice! Please enter N, P, or E.");
-                    pause();
-                }
             }
-            catch (OperationCancelledException&) { break; }
+            catch (OperationCancelledException&) { pause(); break; }
         }
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Appointments");
 }
 
@@ -501,7 +489,7 @@ void createAppointment() {
             cout << "  \033[36mColor :\033[0m " << vColor << endl;
 
             // Service Details
-            cout << "\n\033[1;97m" << u8"── SERVICES (" << selectedNames.size() << ") " << u8"────────────────────────────────────────" << "\033[0m" << endl;
+            cout << "\n\033[1;97m" << u8"── SERVICES (" << selectedNames.size() << ") " << u8"───────────────────────────────────────" << "\033[0m" << endl;
             for (size_t i = 0; i < selectedNames.size(); i++) {
                 cout << "  \033[32m" << (i + 1) << ".\033[0m " << selectedNames[i] << endl;
             }
@@ -526,7 +514,7 @@ void createAppointment() {
         }
 
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Appointments");
     pause();
 }
@@ -604,8 +592,8 @@ void viewAppointments() {
         int totalPages = (totalRecords + recordsPerPage - 1) / recordsPerPage;
         int currentPage = 1;
 
-        while (true) {
-            clearScreen();
+        // Redraw callback for paging
+        auto redrawPage = [&]() {
             displayBreadcrumb();
             printSectionTitle("VIEW APPOINTMENTS - Page " + to_string(currentPage) + "/" + to_string(totalPages));
             cout << endl;
@@ -627,21 +615,18 @@ void viewAppointments() {
                 " ORDER BY st.slotDate DESC, st.slotTime ASC "
                 "LIMIT " + to_string(recordsPerPage) + " OFFSET " + to_string(offset);
 
-            if (mysql_query(conn, dataQuery.c_str())) {
-                showError("Error: " + string(mysql_error(conn)));
-                break;
-            }
-
-            result = mysql_store_result(conn);
+            if (mysql_query(conn, dataQuery.c_str())) return;
+            MYSQL_RES* res = mysql_store_result(conn);
 
             cout << "\033[36m" << left << setw(5) << "ID" << setw(12) << "License" << setw(20) << "Customer"
                 << setw(8) << "Bay" << setw(12) << "Date" << setw(10) << "Start"
                 << setw(20) << "Mechanic" << setw(15) << "Status" << "\033[0m" << endl;
             cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
-            while ((row = mysql_fetch_row(result))) {
-                string mechName = (row[7] ? row[7] : "-");
-                string status = row[6];
+            MYSQL_ROW r;
+            while ((r = mysql_fetch_row(res))) {
+                string mechName = (r[7] ? r[7] : "-");
+                string status = r[6];
                 string colorStatus = status;
 
                 if (status == "In Progress") colorStatus = "\033[33mIn Progress\033[0m";
@@ -654,17 +639,16 @@ void viewAppointments() {
                 int len = mechName.length();
 
                 if (len == 0) {
-                    cout << left << setw(5) << row[0] << setw(12) << row[1] << setw(20) << row[2]
-                        << setw(8) << row[3] << setw(12) << row[4] << setw(10) << row[5]
+                    cout << left << setw(5) << r[0] << setw(12) << r[1] << setw(20) << r[2]
+                        << setw(8) << r[3] << setw(12) << r[4] << setw(10) << r[5]
                         << setw(colWidth) << "-" << setw(25) << colorStatus << endl;
                 }
                 else {
-                    for (int i = 0; i < len; i += textMax) {
+                    for (size_t i = 0; i < len; i += textMax) {
                         string chunk = mechName.substr(i, textMax);
-
                         if (i == 0) {
-                            cout << left << setw(5) << row[0] << setw(12) << row[1] << setw(20) << row[2]
-                                << setw(8) << row[3] << setw(12) << row[4] << setw(10) << row[5]
+                            cout << left << setw(5) << r[0] << setw(12) << r[1] << setw(20) << r[2]
+                                << setw(8) << r[3] << setw(12) << r[4] << setw(10) << r[5]
                                 << setw(colWidth) << chunk << setw(25) << colorStatus << endl;
                         }
                         else {
@@ -675,37 +659,31 @@ void viewAppointments() {
                     }
                 }
             }
-            mysql_free_result(result);
+            mysql_free_result(res);
 
             cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
             cout << "\033[90mPage " << currentPage << " of " << totalPages << " | Total Records: " << totalRecords << "\033[0m" << endl;
             cout << "\n\033[36m[N]ext | [P]revious | [E]xit\033[0m" << endl;
+        };
+
+        while (true) {
+            clearScreen();
+            redrawPage();
 
             try {
-                string input = getValidString("Enter choice", 1, 10, false);
-
-                if (input.length() != 1) {
-                    showError("Invalid choice! Please enter N, P, or E.");
-                    pause();
-                    continue;
-                }
-
+                string input = getValidString("Enter choice", 1, 1, false, redrawPage);
                 char nav = toupper(input[0]);
 
                 if (nav == 'N' && currentPage < totalPages) currentPage++;
                 else if (nav == 'P' && currentPage > 1) currentPage--;
                 else if (nav == 'E') break;
-                else {
-                    showError("Invalid choice! Please enter N, P, or E.");
-                    pause();
-                }
             }
-            catch (OperationCancelledException&) { break; }
+            catch (OperationCancelledException&) { pause(); break; }
         }
 
         setBreadcrumb("Home > Appointments > Dashboard");
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Appointments");
 }
 
@@ -860,11 +838,11 @@ void updateAppointmentStatus() {
                 showInfo("Bay status auto-updated to: " + bayStatus);
             }
         }
+        pause();
 
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Appointments");
-    pause();
 }
 
 // ============================================
@@ -1155,7 +1133,7 @@ void manageServiceJobDetails() {
             }
         }
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home");
 }
 
@@ -1248,12 +1226,10 @@ void cancelAppointment() {
                 showError("Error: " + string(mysql_error(conn)));
             }
         }
-
+        pause();
     }
-    catch (OperationCancelledException&) {
-    }
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Appointments");
-    pause();
 }
 
 // ============================================
@@ -1288,6 +1264,6 @@ void scheduleAppointments() {
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; break; }
+        catch (OperationCancelledException&) { choice = -1; pause(); break; }
     } while (choice != 0);
 }

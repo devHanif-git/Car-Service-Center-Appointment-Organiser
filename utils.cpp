@@ -144,7 +144,6 @@ string getSmartDateInput(string prompt, bool allowPastDates, function<void()> re
         // Handle Global Cancel
         if (trim(input) == "@") {
             showWarning("Operation cancelled by user.");
-            pause();
             throw OperationCancelledException();
         }
 

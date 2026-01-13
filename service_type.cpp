@@ -61,10 +61,10 @@ void addServiceType() {
                 mysql_free_result(res);
             }
         }
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Services");
-    pause();
 }
 
 // ============================================
@@ -138,10 +138,10 @@ void searchServiceType() {
             }
         }
         mysql_free_result(result);
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Services");
-    pause();
 }
 
 // ============================================
@@ -174,8 +174,9 @@ void viewServiceTypes() {
 
     int totalPages = (totalRecords + recordsPerPage - 1) / recordsPerPage;
 
-    while (true) {
-        clearScreen();
+    // Redraw callback for paging
+    auto redrawPage = [&]() {
+        displayBreadcrumb();
         printSectionTitle("VIEW SERVICE TYPES");
         cout << endl;
 
@@ -184,28 +185,24 @@ void viewServiceTypes() {
         string query = "SELECT * FROM SERVICE_TYPE ORDER BY serviceTypeId LIMIT " +
             to_string(recordsPerPage) + " OFFSET " + to_string(offset);
 
-        if (mysql_query(conn, query.c_str())) {
-            showError("Error: " + string(mysql_error(conn)));
-            pause();
-            return;
-        }
-
-        result = mysql_store_result(conn);
+        if (mysql_query(conn, query.c_str())) return;
+        MYSQL_RES* res = mysql_store_result(conn);
 
         cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Service Name"
             << setw(12) << "Duration" << setw(12) << "Price (RM)" << setw(35) << "Description" << "\033[0m" << endl;
         cout << "\033[90m" << u8"────────────────────────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
-        while ((row = mysql_fetch_row(result))) {
-            string id = row[0];
-            string name = row[1];
-            string duration = string(row[2]) + " min";
-            string price = row[4];
-            string desc = row[3] ? row[3] : u8"─";
+        MYSQL_ROW r;
+        while ((r = mysql_fetch_row(res))) {
+            string id = r[0];
+            string name = r[1];
+            string duration = string(r[2]) + " min";
+            string price = r[4];
+            string desc = r[3] ? r[3] : u8"─";
 
             int colWidth = 35;
             int textMax = 32;
-            int len = desc.length();
+            size_t len = desc.length();
 
             if (len == 0) {
                 cout << left << setw(5) << id << setw(25) << name << setw(12) << duration
@@ -213,52 +210,39 @@ void viewServiceTypes() {
                 continue;
             }
 
-            for (int i = 0; i < len; i += textMax) {
+            for (size_t i = 0; i < len; i += textMax) {
                 string chunk = desc.substr(i, textMax);
-
                 if (i == 0) {
-                    cout << left << setw(5) << id
-                        << setw(25) << name
-                        << setw(12) << duration
-                        << setw(12) << price
-                        << setw(colWidth) << chunk << endl;
+                    cout << left << setw(5) << id << setw(25) << name << setw(12) << duration
+                        << setw(12) << price << setw(colWidth) << chunk << endl;
                 }
                 else {
-                    cout << left << setw(5) << " "
-                        << setw(25) << " "
-                        << setw(12) << " "
-                        << setw(12) << " "
-                        << setw(colWidth) << chunk << endl;
+                    cout << left << setw(5) << " " << setw(25) << " " << setw(12) << " "
+                        << setw(12) << " " << setw(colWidth) << chunk << endl;
                 }
             }
         }
-        mysql_free_result(result);
+        mysql_free_result(res);
 
         cout << "\n\033[90mPage " << currentPage << " of " << totalPages
             << " | Total: " << totalRecords << " service type(s)\033[0m" << endl;
         cout << "\n\033[36m[N]ext | [P]revious | [S]earch | [E]xit\033[0m" << endl;
+    };
+
+    while (true) {
+        clearScreen();
+        redrawPage();
 
         try {
-            string input = getValidString("Enter choice", 1, 10, false);
-
-            if (input.length() != 1) {
-                showError("Invalid choice! Please enter N, P, S, or E.");
-                pause();
-                continue;
-            }
-
+            string input = getValidString("Enter choice", 1, 1, false, redrawPage);
             char choice = toupper(input[0]);
 
             if (choice == 'N' && currentPage < totalPages) currentPage++;
             else if (choice == 'P' && currentPage > 1) currentPage--;
             else if (choice == 'S') { searchServiceType(); return; }
             else if (choice == 'E') break;
-            else {
-                showError("Invalid choice! Please enter N, P, S, or E.");
-                pause();
-            }
         }
-        catch (OperationCancelledException&) { break; }
+        catch (OperationCancelledException&) {  pause(); break; }
     }
     setBreadcrumb("Home > Services");
 }
@@ -322,15 +306,69 @@ void updateServiceType() {
         int serviceChoice = getValidInt("\nEnter Service No.", 1, (int)serviceIds.size());
         int id = serviceIds[serviceChoice - 1];
 
+        // Fetch current values
+        string fetchQ = "SELECT serviceName, standardDuration, basePrice, serviceDescription FROM SERVICE_TYPE WHERE serviceTypeId = " + to_string(id);
+        if (mysql_query(conn, fetchQ.c_str())) { showError("Database error"); return; }
+        MYSQL_RES* currRes = mysql_store_result(conn);
+        MYSQL_ROW currRow = mysql_fetch_row(currRes);
+
+        string currName = currRow[0];
+        int currDuration = atoi(currRow[1]);
+        int currPrice = atoi(currRow[2]);
+        string currDesc = currRow[3] ? currRow[3] : "";
+        mysql_free_result(currRes);
+
         cout << "\n1. Name\n2. Duration\n3. Price\n4. Description\n5. Update All\n";
         int choice = getValidInt("Select Field", 1, 5);
 
         string updateQ = "UPDATE SERVICE_TYPE SET ";
+        string newStrVal;
+        int newIntVal;
 
-        if (choice == 1 || choice == 5) updateQ += "serviceName='" + getValidString("New Name") + "',";
-        if (choice == 2 || choice == 5) updateQ += "standardDuration=" + to_string(getValidInt("New Duration", 1, 480)) + ",";
-        if (choice == 3 || choice == 5) updateQ += "basePrice=" + to_string(getValidInt("New Price", 0, 10000)) + ",";
-        if (choice == 4 || choice == 5) updateQ += "serviceDescription='" + getValidString("New Description") + "',";
+        if (choice == 1 || choice == 5) {
+            while (true) {
+                newStrVal = getValidString("New Name");
+                if (newStrVal == currName) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "serviceName='" + newStrVal + "',";
+        }
+        if (choice == 2 || choice == 5) {
+            while (true) {
+                newIntVal = getValidInt("New Duration", 1, 480);
+                if (newIntVal == currDuration) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "standardDuration=" + to_string(newIntVal) + ",";
+        }
+        if (choice == 3 || choice == 5) {
+            while (true) {
+                newIntVal = getValidInt("New Price", 0, 10000);
+                if (newIntVal == currPrice) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "basePrice=" + to_string(newIntVal) + ",";
+        }
+        if (choice == 4 || choice == 5) {
+            while (true) {
+                newStrVal = getValidString("New Description");
+                if (newStrVal == currDesc) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "serviceDescription='" + newStrVal + "',";
+        }
 
         updateQ.pop_back();
         updateQ += " WHERE serviceTypeId=" + to_string(id);
@@ -374,11 +412,10 @@ void updateServiceType() {
             }
             mysql_free_result(result);
         }
-
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Services");
-    pause();
 }
 
 // ============================================
@@ -411,6 +448,6 @@ void maintainServiceTypes() {
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; break; }
+        catch (OperationCancelledException&) { choice = -1; pause();  break; }
     } while (choice != 0);
 }

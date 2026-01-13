@@ -90,10 +90,10 @@ void addServiceBay() {
             // Sync slot capacity with new bay count
             syncBayCapacity();
         }
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Bays");
-    pause();
 }
 
 // ============================================
@@ -133,8 +133,8 @@ void viewServiceBays() {
 
     int totalPages = (totalRecords + recordsPerPage - 1) / recordsPerPage;
 
-    while (true) {
-        clearScreen();
+    // Redraw callback for paging
+    auto redrawPage = [&]() {
         displayBreadcrumb();
         printSectionTitle("VIEW SERVICE BAYS");
         cout << endl;
@@ -144,52 +144,36 @@ void viewServiceBays() {
         string query = "SELECT * FROM SERVICE_BAY ORDER BY serviceBayId LIMIT " +
             to_string(recordsPerPage) + " OFFSET " + to_string(offset);
 
-        if (mysql_query(conn, query.c_str())) {
-            showError("Error: " + string(mysql_error(conn)));
-            pause();
-            return;
-        }
-
-        result = mysql_store_result(conn);
+        if (mysql_query(conn, query.c_str())) return;
+        MYSQL_RES* res = mysql_store_result(conn);
 
         cout << "\033[36m" << left << setw(5) << "ID" << setw(25) << "Bay Name" << setw(20) << "Status" << "\033[0m" << endl;
         cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
 
-        while ((row = mysql_fetch_row(result))) {
-            cout << left << setw(5) << row[0] << setw(25) << row[1] << setw(20) << row[2] << endl;
+        MYSQL_ROW r;
+        while ((r = mysql_fetch_row(res))) {
+            cout << left << setw(5) << r[0] << setw(25) << r[1] << setw(20) << r[2] << endl;
         }
-        mysql_free_result(result);
+        mysql_free_result(res);
 
         cout << "\n\033[90mPage " << currentPage << " of " << totalPages
             << " | Total: " << totalRecords << " service bay(s)\033[0m" << endl;
         cout << "\n\033[36m[N]ext | [P]revious | [E]xit\033[0m" << endl;
+    };
+
+    while (true) {
+        clearScreen();
+        redrawPage();
 
         try {
-            string input = getValidString("Enter choice", 1, 10, false);
-
-            if (input.length() != 1) {
-                showError("Invalid choice! Please enter N, P, or E.");
-                pause();
-                continue;
-            }
-
+            string input = getValidString("Enter choice", 1, 1, false, redrawPage);
             char choice = toupper(input[0]);
 
-            if (choice == 'N' && currentPage < totalPages) {
-                currentPage++;
-            }
-            else if (choice == 'P' && currentPage > 1) {
-                currentPage--;
-            }
-            else if (choice == 'E') {
-                break;
-            }
-            else {
-                showError("Invalid choice! Please enter N, P, or E.");
-                pause();
-            }
+            if (choice == 'N' && currentPage < totalPages) currentPage++;
+            else if (choice == 'P' && currentPage > 1) currentPage--;
+            else if (choice == 'E') break;
         }
-        catch (OperationCancelledException&) { break; }
+        catch (OperationCancelledException&) { pause();  break; }
     }
     setBreadcrumb("Home > Bays");
 }
@@ -235,9 +219,26 @@ void updateServiceBayStatus() {
         int bayChoice = getValidInt("\nEnter Bay No.", 1, (int)bayIds.size(), redrawBayList);
         int id = bayIds[bayChoice - 1];
 
+        // Fetch current status
+        string fetchQ = "SELECT bayStatus FROM SERVICE_BAY WHERE serviceBayId = " + to_string(id);
+        if (mysql_query(conn, fetchQ.c_str())) { showError("Database error"); return; }
+        MYSQL_RES* currRes = mysql_store_result(conn);
+        MYSQL_ROW currRow = mysql_fetch_row(currRes);
+        string currStatus = currRow[0];
+        mysql_free_result(currRes);
+
         cout << "\n1. Available\n2. Occupied\n3. Maintenance\n";
-        int statusChoice = getValidInt("Select New Status", 1, 3);
         string statuses[] = { "", "Available", "Occupied", "Maintenance" };
+        int statusChoice;
+
+        while (true) {
+            statusChoice = getValidInt("Select New Status", 1, 3);
+            if (statuses[statusChoice] == currStatus) {
+                showWarning("New status cannot be the same as current status (" + currStatus + ").");
+                continue;
+            }
+            break;
+        }
 
         string query = "UPDATE SERVICE_BAY SET bayStatus='" + statuses[statusChoice] + "' WHERE serviceBayId=" + to_string(id);
 
@@ -258,11 +259,10 @@ void updateServiceBayStatus() {
             // Sync slot capacity when maintenance status changes
             syncBayCapacity();
         }
-
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Bays");
-    pause();
 }
 
 // ============================================
@@ -318,7 +318,12 @@ void checkBaySchedule() {
         if (mysql_query(conn, query.c_str())) return;
         res = mysql_store_result(conn);
 
-        cout << "\n\033[1;97m=== Schedule & Gaps for Bay " << bayId << " (" << startDate << " to " << endDate << ") ===\033[0m" << endl;
+        clearScreen();
+        displayBreadcrumb();
+        printSectionTitle("CHECK BAY SCHEDULE");
+        cout << endl;
+
+        cout << "\033[1;97m=== Schedule & Gaps for Bay " << bayId << " (" << startDate << " to " << endDate << ") ===\033[0m" << endl;
         cout << "\033[90m(Standard Hours: 08:00:00 to 18:00:00)\033[0m" << endl << endl;
 
         if (mysql_num_rows(res) == 0) {
@@ -360,9 +365,10 @@ void checkBaySchedule() {
             }
         }
         mysql_free_result(res);
+        pause();
 
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home");
 }
 
@@ -431,7 +437,7 @@ void viewCurrentBayActivity() {
             statusColor = "\033[33m";  // Yellow
         }
         else {
-            statusIcon = u8"[MAINT.]   ";
+            statusIcon = u8"[  MAINT  ]   ";
             statusColor = "\033[31m";  // Red
         }
 
@@ -500,6 +506,6 @@ void coordinateServiceBays() {
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; break; }
+        catch (OperationCancelledException&) { choice = -1; pause();  break; }
     } while (choice != 0);
 }

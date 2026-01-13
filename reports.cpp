@@ -144,7 +144,7 @@ void viewAppointmentSchedule() {
             cout << left
                 << setw(6) << row[0]                    // ID
                 << setw(10) << row[2]                   // Time
-                << setw(18) << string(row[4]).substr(0, 16)  // Customer Name
+                << setw(18) << row[4]                   // Customer Name
                 << setw(14) << row[5]                   // Phone
                 << setw(12) << row[6]                   // License Plate
                 << setw(8) << row[9]                    // Bay
@@ -197,10 +197,10 @@ void viewAppointmentSchedule() {
         cout << "\n  \033[1;97mTOTAL APPOINTMENTS: " << totalAppointments << "\033[0m" << endl;
 
         printReportFooter(totalAppointments);
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Reports");
-    pause();
 }
 
 // ============================================
@@ -349,23 +349,23 @@ void viewFinancialReport() {
                 << setw(12) << "Date"
                 << setw(18) << "Customer"
                 << setw(12) << "Vehicle"
-                << setw(30) << "Services"
                 << setw(12) << "Amount"
                 << "\033[0m" << endl;
-            cout << "\033[90m" << repeatString(u8"─", 90) << "\033[0m" << endl;
+            cout << "\033[90m" << repeatString(u8"─", 60) << "\033[0m" << endl;
 
             while ((row = mysql_fetch_row(transResult))) {
                 string services = row[4];
-                if (services.length() > 28) services = services.substr(0, 25) + "...";
 
                 cout << left
                     << setw(6) << row[0]
                     << setw(12) << row[1]
-                    << setw(18) << string(row[2]).substr(0, 16)
+                    << setw(18) << row[2]
                     << setw(12) << row[3]
-                    << setw(30) << services
                     << "RM " << row[5]
                     << endl;
+                if (!services.empty()) {
+                    cout << "\033[90m       " << u8"└─ Services: " << services << "\033[0m" << endl;
+                }
             }
             mysql_free_result(transResult);
 
@@ -384,10 +384,10 @@ void viewFinancialReport() {
 
             printReportFooter(transCount);
         }
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Reports");
-    pause();
 }
 
 // ============================================
@@ -534,7 +534,7 @@ void viewMechanicPerformance() {
                 while ((row = mysql_fetch_row(jobResult))) {
                     cout << left
                         << setw(12) << row[0]
-                        << setw(25) << string(row[1]).substr(0, 23)
+                        << setw(25) << row[1]
                         << setw(10) << row[2]
                         << setw(10) << row[3]
                         << "RM " << setw(7) << row[4]
@@ -557,10 +557,10 @@ void viewMechanicPerformance() {
         }
 
         printReportFooter(totalJobs);
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Reports");
-    pause();
 }
 
 // ============================================
@@ -647,7 +647,7 @@ void viewServiceTrends() {
             if (!medal.empty()) cout << medal;
             else cout << setw(5) << rank;
 
-            cout << setw(30) << string(row[1]).substr(0, 28)
+            cout << setw(30) << row[1]
                 << "RM " << setw(9) << row[2]
                 << setw(12) << (string(row[3]) + " min");
 
@@ -717,10 +717,10 @@ void viewServiceTrends() {
         }
 
         printReportFooter(totalBookings);
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Reports");
-    pause();
 }
 
 // ============================================
@@ -800,7 +800,7 @@ void viewCustomerAnalytics() {
                 if (!medal.empty()) cout << medal;
                 else cout << setw(5) << rank;
 
-                cout << setw(20) << string(row[1]).substr(0, 18)
+                cout << setw(20) << row[1]
                     << setw(15) << row[2]
                     << setw(8) << row[4]
                     << setw(10) << row[5]
@@ -881,7 +881,7 @@ void viewCustomerAnalytics() {
 
             while ((row = mysql_fetch_row(result))) {
                 cout << left
-                    << setw(20) << string(row[1]).substr(0, 18)
+                    << setw(20) << row[1]
                     << setw(15) << row[2]
                     << setw(8) << row[3]
                     << setw(12) << row[4]
@@ -936,9 +936,9 @@ void viewCustomerAnalytics() {
                     string urgency = (daysInactive > 365) ? "\033[31m" : "\033[33m";
 
                     cout << left
-                        << setw(20) << string(row[1]).substr(0, 18)
+                        << setw(20) << row[1]
                         << setw(15) << row[2]
-                        << setw(25) << (row[3] ? string(row[3]).substr(0, 23) : u8"─")
+                        << setw(25) << (row[3] ? row[3] : u8"─")
                         << setw(12) << row[4]
                         << urgency << setw(12) << (string(row[5]) + " days") << "\033[0m" << endl;
                 }
@@ -1015,9 +1015,9 @@ void viewCustomerAnalytics() {
                 while ((row = mysql_fetch_row(listResult))) {
                     cout << left
                         << setw(5) << row[0]
-                        << setw(20) << string(row[1]).substr(0, 18)
+                        << setw(20) << row[1]
                         << setw(15) << row[2]
-                        << setw(25) << (row[3] ? string(row[3]).substr(0, 23) : u8"─")
+                        << setw(25) << (row[3] ? row[3] : u8"─")
                         << setw(12) << row[4] << endl;
                 }
                 mysql_free_result(listResult);
@@ -1154,17 +1154,14 @@ void viewCustomerAnalytics() {
                     << setw(6) << "ID"
                     << setw(12) << "Date"
                     << setw(12) << "Vehicle"
-                    << setw(35) << "Services"
                     << setw(12) << "Amount"
                     << setw(10) << "Status"
                     << "\033[0m" << endl;
-                cout << "\033[90m" << repeatString(u8"─", 87) << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 52) << "\033[0m" << endl;
 
                 double totalSpent = 0;
                 while ((row = mysql_fetch_row(histResult))) {
                     string services = row[3];
-                    if (services.length() > 33) services = services.substr(0, 30) + "...";
-
                     string status = row[5];
                     string statusColor = (status == "Completed") ? "\033[32m" :
                                         (status == "Cancelled") ? "\033[31m" : "\033[36m";
@@ -1173,15 +1170,17 @@ void viewCustomerAnalytics() {
                         << setw(6) << row[0]
                         << setw(12) << row[1]
                         << setw(12) << row[2]
-                        << setw(35) << services
                         << "RM " << setw(9) << row[4]
                         << statusColor << status << "\033[0m" << endl;
+                    if (!services.empty()) {
+                        cout << "\033[90m       " << u8"└─ Services: " << services << "\033[0m" << endl;
+                    }
 
                     if (status == "Completed") totalSpent += atof(row[4]);
                 }
                 mysql_free_result(histResult);
 
-                cout << "\033[90m" << repeatString(u8"─", 87) << "\033[0m" << endl;
+                cout << "\033[90m" << repeatString(u8"─", 52) << "\033[0m" << endl;
                 cout << "\033[1;32mTOTAL LIFETIME SPENDING: RM " << fixed << setprecision(2) << totalSpent << "\033[0m" << endl;
 
                 printReportFooter(histCount);
@@ -1191,7 +1190,7 @@ void viewCustomerAnalytics() {
         }
             }
         }
-        catch (OperationCancelledException&) { choice = -1; }
+        catch (OperationCancelledException&) { choice = -1; pause();  break; }
     } while (choice != 0);
 }
 
@@ -1228,6 +1227,6 @@ void generateReports() {
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; break; }
+        catch (OperationCancelledException&) { choice = -1; pause();  break; }
     } while (choice != 0);
 }

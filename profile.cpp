@@ -88,7 +88,7 @@ void viewMyProfile() {
                 pause();
             }
         }
-        catch (OperationCancelledException&) { break; }
+        catch (OperationCancelledException&) { pause(); break; }
     }
     setBreadcrumb("Home");
 }

@@ -54,7 +54,7 @@ void mainMenu() {
                 case 0: isLoggedIn = false; return;
                 }
             }
-            catch (OperationCancelledException&) {}
+            catch (OperationCancelledException&) { pause(); }
         } while (isLoggedIn);
     }
 
@@ -124,7 +124,7 @@ void mainMenu() {
                 case 0: isLoggedIn = false; return;
                 }
             }
-            catch (OperationCancelledException&) { choice = -1; }
+            catch (OperationCancelledException&) { choice = -1; pause(); }
         } while (isLoggedIn);
     }
 }

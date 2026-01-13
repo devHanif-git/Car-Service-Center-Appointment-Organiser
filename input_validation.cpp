@@ -33,7 +33,6 @@ string getValidString(string prompt, int minLength, int maxLength, bool allowEmp
         // Check for Global Cancel
         if (trim(value) == "@") {
             showWarning("Operation cancelled by user.");
-            pause();
             throw OperationCancelledException();
         }
 
@@ -78,7 +77,6 @@ int getValidInt(string prompt, int minVal, int maxVal, function<void()> redrawCa
 
         if (trim(input) == "@") {
             showWarning("Operation cancelled by user.");
-            pause();
             throw OperationCancelledException();
         }
 
@@ -108,7 +106,6 @@ int getMenuChoice(string prompt, int minVal, int maxVal, function<void()> redisp
 
         if (trim(input) == "@") {
             showWarning("Operation cancelled by user.");
-            pause();
             throw OperationCancelledException();
         }
 

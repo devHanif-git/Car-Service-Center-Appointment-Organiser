@@ -68,7 +68,7 @@ void addStaff() {
             mysql_free_result(res);
         }
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Staff");
     pause();
 }
@@ -119,8 +119,9 @@ void viewStaff() {
     int totalPages = (totalStaff + recordsPerPage - 1) / recordsPerPage;
     int currentPage = 1;
 
-    while (true) {
-        clearScreen();
+    // Redraw callback for paging
+    auto redrawPage = [&]() {
+        displayBreadcrumb();
         printSectionTitle("VIEW STAFF LIST");
         cout << endl;
 
@@ -129,24 +130,21 @@ void viewStaff() {
         string query = "SELECT staffId, fullName, username, role, isActive FROM STAFF "
             "ORDER BY role, fullName LIMIT " + to_string(recordsPerPage) + " OFFSET " + to_string(offset);
 
-        if (mysql_query(conn, query.c_str())) {
-            showError("Error: " + string(mysql_error(conn)));
-            break;
-        }
-
-        res = mysql_store_result(conn);
+        if (mysql_query(conn, query.c_str())) return;
+        MYSQL_RES* result = mysql_store_result(conn);
 
         cout << "\033[36m" << left << setw(5) << "ID" << setw(20) << "Name" << setw(15) << "Username" << setw(15) << "Role" << setw(10) << "Status" << "\033[0m" << endl;
         cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
-        while ((row = mysql_fetch_row(res))) {
-            string status = (atoi(row[4]) == 1) ? "ACTIVE" : "INACTIVE";
+        MYSQL_ROW r;
+        while ((r = mysql_fetch_row(result))) {
+            string status = (atoi(r[4]) == 1) ? "ACTIVE" : "INACTIVE";
             string statusDisplay = (status == "ACTIVE") ? "\033[32mACTIVE\033[0m" : "\033[33mINACTIVE\033[0m";
 
-            cout << left << setw(5) << row[0] << setw(20) << row[1] << setw(15) << row[2]
-                << setw(15) << row[3] << setw(10) << statusDisplay << endl;
+            cout << left << setw(5) << r[0] << setw(20) << r[1] << setw(15) << r[2]
+                << setw(15) << r[3] << setw(10) << statusDisplay << endl;
         }
-        mysql_free_result(res);
+        mysql_free_result(result);
 
         cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
         cout << "\033[90mPage " << currentPage << " of " << totalPages << " | Total Records: " << totalStaff << "\033[0m" << endl;
@@ -157,27 +155,21 @@ void viewStaff() {
         cout << "\033[90m" << u8"───────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
         cout << "\n\033[36m[N]ext | [P]revious | [E]xit\033[0m" << endl;
+    };
+
+    while (true) {
+        clearScreen();
+        redrawPage();
 
         try {
-            string input = getValidString("Enter choice", 1, 10, false);
-
-            if (input.length() != 1) {
-                showError("Invalid choice! Please enter N, P, or E.");
-                pause();
-                continue;
-            }
-
+            string input = getValidString("Enter choice", 1, 1, false, redrawPage);
             char choice = toupper(input[0]);
 
             if (choice == 'N' && currentPage < totalPages) currentPage++;
             else if (choice == 'P' && currentPage > 1) currentPage--;
             else if (choice == 'E') break;
-            else {
-                showError("Invalid choice! Please enter N, P, or E.");
-                pause();
-            }
         }
-        catch (OperationCancelledException&) { break; }
+        catch (OperationCancelledException&) {  pause(); break; }
     }
     setBreadcrumb("Home > Staff");
 }
@@ -220,18 +212,44 @@ void updateStaff() {
             return;
         }
 
+        // Fetch current values
+        string fetchQ = "SELECT fullName, role FROM STAFF WHERE staffId = " + to_string(id);
+        if (mysql_query(conn, fetchQ.c_str())) { showError("Database error"); return; }
+        MYSQL_RES* currRes = mysql_store_result(conn);
+        MYSQL_ROW currRow = mysql_fetch_row(currRes);
+        string currName = currRow[0];
+        string currRole = currRow[1];
+        mysql_free_result(currRes);
+
         cout << "\n1. Full Name\n2. Role\n";
         int choice = getValidInt("Select Field", 1, 2);
 
         string updateQ = "UPDATE STAFF SET ";
+        string newVal;
 
         if (choice == 1) {
-            updateQ += "fullName='" + getValidString("New Name") + "'";
+            while (true) {
+                newVal = getValidString("New Name");
+                if (newVal == currName) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "fullName='" + newVal + "'";
         }
         else if (choice == 2) {
             cout << "\n\033[36mRoles: 1. Manager, 2. Admin, 3. Mechanic\033[0m\n";
-            int r = getValidInt("Select Role", 1, 3);
             string roles[] = { "", "Manager", "Admin", "Mechanic" };
+            int r;
+            while (true) {
+                r = getValidInt("Select Role", 1, 3);
+                if (roles[r] == currRole) {
+                    showWarning("New role cannot be the same as current role (" + currRole + ").");
+                    continue;
+                }
+                break;
+            }
             updateQ += "role='" + roles[r] + "'";
         }
 
@@ -244,7 +262,7 @@ void updateStaff() {
             showSuccess("Staff Updated Successfully!");
         }
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Staff");
     pause();
 }
@@ -306,7 +324,7 @@ void deactivateStaff() {
         }
 
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Staff");
     pause();
 }
@@ -341,6 +359,6 @@ void manageStaff() {
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; break; }
+        catch (OperationCancelledException&) { choice = -1; pause(); break; }
     } while (choice != 0);
 }

@@ -8,6 +8,7 @@
 #include <string>
 #include <iomanip>
 #include <cstdlib>
+#include <cctype>
 #include <conio.h>
 #include <ctime>
 #include <sstream>

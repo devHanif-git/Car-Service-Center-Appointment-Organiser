@@ -141,12 +141,10 @@ void addVehicle() {
                 break;
             }
         }
-
+        pause();
     }
-    catch (OperationCancelledException&) {
-    }
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Vehicles");
-    pause();
 }
 
 // ============================================
@@ -194,11 +192,10 @@ void searchVehicle() {
             }
         }
         mysql_free_result(result);
-
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Vehicles");
-    pause();
 }
 
 // ============================================
@@ -232,8 +229,9 @@ void viewVehicles() {
 
     int totalPages = (totalRecords + recordsPerPage - 1) / recordsPerPage;
 
-    while (true) {
-        clearScreen();
+    // Redraw callback for paging
+    auto redrawPage = [&]() {
+        displayBreadcrumb();
         printSectionTitle("VIEW ALL VEHICLES");
         cout << endl;
 
@@ -245,51 +243,41 @@ void viewVehicles() {
             "ORDER BY v.vehicleId LIMIT " + to_string(recordsPerPage) +
             " OFFSET " + to_string(offset);
 
-        if (mysql_query(conn, query.c_str())) {
-            showError("Error: " + string(mysql_error(conn)));
-            pause();
-            return;
-        }
-
-        result = mysql_store_result(conn);
+        if (mysql_query(conn, query.c_str())) return;
+        MYSQL_RES* res = mysql_store_result(conn);
 
         cout << "\033[36m" << left << setw(5) << "ID" << setw(15) << "License"
             << setw(15) << "Brand" << setw(15) << "Model"
             << setw(8) << "Year" << setw(25) << "Owner" << "\033[0m" << endl;
         cout << "\033[90m" << u8"────────────────────────────────────────────────────────────────────────────────" << "\033[0m" << endl;
 
-        while ((row = mysql_fetch_row(result))) {
-            cout << left << setw(5) << row[0] << setw(15) << row[1]
-                << setw(15) << row[2] << setw(15) << row[3]
-                << setw(8) << row[4] << setw(25) << row[5] << endl;
+        MYSQL_ROW r;
+        while ((r = mysql_fetch_row(res))) {
+            cout << left << setw(5) << r[0] << setw(15) << r[1]
+                << setw(15) << r[2] << setw(15) << r[3]
+                << setw(8) << r[4] << setw(25) << r[5] << endl;
         }
-        mysql_free_result(result);
+        mysql_free_result(res);
 
         cout << "\n\033[90mPage " << currentPage << " of " << totalPages
             << " | Total: " << totalRecords << " vehicle(s)\033[0m" << endl;
         cout << "\n\033[36m[N]ext | [P]revious | [S]earch | [E]xit\033[0m" << endl;
+    };
+
+    while (true) {
+        clearScreen();
+        redrawPage();
 
         try {
-            string input = getValidString("Enter choice", 1, 10, false);
-
-            if (input.length() != 1) {
-                showError("Invalid choice! Please enter N, P, S, or E.");
-                pause();
-                continue;
-            }
-
+            string input = getValidString("Enter choice", 1, 1, false, redrawPage);
             char choice = toupper(input[0]);
 
             if (choice == 'N' && currentPage < totalPages) currentPage++;
             else if (choice == 'P' && currentPage > 1) currentPage--;
             else if (choice == 'S') { searchVehicle(); return; }
             else if (choice == 'E') break;
-            else {
-                showError("Invalid choice! Please enter N, P, S, or E.");
-                pause();
-            }
         }
-        catch (OperationCancelledException&) { break; }
+        catch (OperationCancelledException&) {  pause(); break; }
     }
     setBreadcrumb("Home > Vehicles");
 }
@@ -342,6 +330,13 @@ void updateVehicle() {
         MYSQL_RES* detailRes = mysql_store_result(conn);
         MYSQL_ROW detailRow = mysql_fetch_row(detailRes);
 
+        // Store current values
+        string currPlate = detailRow[0];
+        string currBrand = detailRow[1];
+        string currModel = detailRow[2];
+        string currYear = detailRow[3];
+        string currColor = detailRow[4];
+
         clearScreen();
         printSectionTitle("UPDATE VEHICLE");
         cout << endl;
@@ -352,18 +347,16 @@ void updateVehicle() {
         cout << "\033[36mPhone:\033[0m " << detailRow[6] << endl;
         cout << "\033[36mEmail:\033[0m " << detailRow[7] << endl;
 
-        
-        
         // Display vehicle details
         cout << "\n\033[1;97m=== Vehicle Details ===\033[0m" << endl;
-        cout << "\033[36mPlate:\033[0m " << detailRow[0] << endl;
-        cout << "\033[36mBrand:\033[0m " << detailRow[1] << endl;
-        cout << "\033[36mModel:\033[0m " << detailRow[2] << endl;
-        cout << "\033[36mYear:\033[0m  " << detailRow[3] << endl;
-        cout << "\033[36mColor:\033[0m " << detailRow[4] << endl;
-        
+        cout << "\033[36mPlate:\033[0m " << currPlate << endl;
+        cout << "\033[36mBrand:\033[0m " << currBrand << endl;
+        cout << "\033[36mModel:\033[0m " << currModel << endl;
+        cout << "\033[36mYear:\033[0m  " << currYear << endl;
+        cout << "\033[36mColor:\033[0m " << currColor << endl;
+
         mysql_free_result(detailRes);
-        
+
         cout << "\033[90m" << u8"────────────────────────────────────────" << "\033[0m" << endl;
         cout << "\n\033[1;97m=== Select Field to Update ===\033[0m" << endl;
         cout << "1. Plate\n2. Brand\n3. Model\n4. Year\n5. Color\n6. Update All\n";
@@ -372,11 +365,63 @@ void updateVehicle() {
         cout << endl;
 
         string updateQ = "UPDATE VEHICLE SET ";
-        if (choice == 1 || choice == 6) updateQ += "licensePlate='" + getValidString("New Plate") + "',";
-        if (choice == 2 || choice == 6) updateQ += "brand='" + getValidString("New Brand") + "',";
-        if (choice == 3 || choice == 6) updateQ += "model='" + getValidString("New Model") + "',";
-        if (choice == 4 || choice == 6) updateQ += "year='" + getValidYear("New Year") + "',";
-        if (choice == 5 || choice == 6) updateQ += "color='" + getValidString("New Color") + "',";
+        string newVal;
+
+        if (choice == 1 || choice == 6) {
+            while (true) {
+                newVal = getValidString("New Plate");
+                if (newVal == currPlate) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "licensePlate='" + newVal + "',";
+        }
+        if (choice == 2 || choice == 6) {
+            while (true) {
+                newVal = getValidString("New Brand");
+                if (newVal == currBrand) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "brand='" + newVal + "',";
+        }
+        if (choice == 3 || choice == 6) {
+            while (true) {
+                newVal = getValidString("New Model");
+                if (newVal == currModel) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "model='" + newVal + "',";
+        }
+        if (choice == 4 || choice == 6) {
+            while (true) {
+                newVal = getValidYear("New Year");
+                if (newVal == currYear) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "year='" + newVal + "',";
+        }
+        if (choice == 5 || choice == 6) {
+            while (true) {
+                newVal = getValidString("New Color");
+                if (newVal == currColor) {
+                    showWarning("New value cannot be the same as current value.");
+                    continue;
+                }
+                break;
+            }
+            updateQ += "color='" + newVal + "',";
+        }
 
         updateQ.pop_back();
         updateQ += " WHERE vehicleId=" + to_string(id);
@@ -401,11 +446,10 @@ void updateVehicle() {
             cout << left << setw(5) << row[0] << setw(15) << row[1] << setw(15) << row[2] << setw(10) << row[4] << endl;
             mysql_free_result(res);
         }
-
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Vehicles");
-    pause();
 }
 
 // ============================================
@@ -513,11 +557,10 @@ void viewVehicleServiceHistory() {
             }
         }
         mysql_free_result(res);
-
+        pause();
     }
-    catch (OperationCancelledException&) {}
+    catch (OperationCancelledException&) { pause(); }
     setBreadcrumb("Home > Vehicles");
-    pause();
 }
 
 // ============================================
@@ -552,6 +595,6 @@ void trackVehicleRecords() {
             case 0: break;
             }
         }
-        catch (OperationCancelledException&) { choice = -1; break; }
+        catch (OperationCancelledException&) { choice = -1; pause(); break; }
     } while (choice != 0);
 }
